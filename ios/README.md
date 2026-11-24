@@ -1,3 +1,5 @@
+<p align="center"><img src="../docs/app-icon.svg" width="120" alt="G1 Translator app icon"></p>
+
 # G1 Translator for iPhone
 
 The same hands-free translator as the desktop app – running on your **iPhone**, no Mac needed while you use it.

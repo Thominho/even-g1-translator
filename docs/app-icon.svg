@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#16261d"/>
+      <stop offset="1" stop-color="#050806"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.52" r="0.55">
+      <stop offset="0" stop-color="#3cff8f" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#3cff8f" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="lensL"><rect x="150" y="390" width="320" height="250" rx="110"/></clipPath>
+    <clipPath id="lensR"><rect x="554" y="390" width="320" height="250" rx="110"/></clipPath>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <rect width="1024" height="1024" fill="url(#glow)"/>
+
+  <!-- frame -->
+  <g fill="none" stroke="#3cff8f" stroke-width="34" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="150" y="390" width="320" height="250" rx="110"/>
+    <rect x="554" y="390" width="320" height="250" rx="110"/>
+    <path d="M470 470 Q512 430 554 470"/>
+    <path d="M150 470 L92 440"/>
+    <path d="M874 470 L932 440"/>
+  </g>
+  <!-- lens tint -->
+  <rect x="167" y="407" width="286" height="216" rx="94" fill="#3cff8f" fill-opacity="0.08"/>
+  <rect x="571" y="407" width="286" height="216" rx="94" fill="#3cff8f" fill-opacity="0.08"/>
+
+  <!-- left lens: sound wave (someone speaks) -->
+  <g clip-path="url(#lensL)" stroke="#3cff8f" stroke-width="22" stroke-linecap="round">
+    <line x1="220" y1="500" x2="220" y2="530"/>
+    <line x1="260" y1="470" x2="260" y2="560"/>
+    <line x1="300" y1="440" x2="300" y2="590"/>
+    <line x1="340" y1="480" x2="340" y2="550"/>
+    <line x1="380" y1="455" x2="380" y2="575"/>
+    <line x1="420" y1="495" x2="420" y2="535"/>
+  </g>
+
+  <!-- right lens: lines of translated text -->
+  <g clip-path="url(#lensR)" stroke="#3cff8f" stroke-width="22" stroke-linecap="round">
+    <line x1="625" y1="465" x2="800" y2="465"/>
+    <line x1="625" y1="515" x2="760" y2="515"/>
+    <line x1="625" y1="565" x2="790" y2="565" stroke-opacity="0.55"/>
+  </g>
+
+  <!-- arrow from sound to text, above the bridge -->
+  <g fill="none" stroke="#3cff8f" stroke-width="20" stroke-linecap="round" stroke-linejoin="round" opacity="0.9">
+    <path d="M400 330 Q512 250 624 330"/>
+    <path d="M590 300 L626 332 L582 348"/>
+  </g>
+</svg>
