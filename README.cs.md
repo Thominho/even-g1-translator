@@ -23,10 +23,17 @@ mluví, a jakmile domluví, nabídnou **tři odpovědi v jeho jazyce** – naho�
 ```
  ┌─────────────────────────────────────────┐        ┌─────────────────────────────────────────┐
  │ [ŠPANĚLŠTINA]                           │        │ ANO 1/3: Ano, moc se mi tam líbí.       │
- │ Ahoj, odkud jsi? Líbí se ti Paraguay?   │   ──►  │ > sí, me gusta mučo                     │
+ │ Ahoj, odkud jsi? Líbí se ti Paraguay?   │  ──►   │ > sí, me gusta mučo                     │
  │                                         │        │                                         │
  └─────────────────────────────────────────┘        └─────────────────────────────────────────┘
-          když mluví: živý překlad                       když domluví: odpovědi + výslovnost
+    když mluví: živý překlad                       domluvil → odpověď 1 (ťuk vpravo ►)
+
+ ┌─────────────────────────────────────────┐        ┌─────────────────────────────────────────┐
+ │ NE 2/3: Upřímně, moc ne.                │        │ OTÁZKA 3/3: A ty jsi odkud?             │
+ │ > no mučo, la verdad                    │  ──►   │ > i tu, de donde eres                   │
+ │                                         │        │                                         │
+ └─────────────────────────────────────────┘        └─────────────────────────────────────────┘
+    odpověď 2: zdvořilé ne (ťuk ►)                 odpověď 3: doplňující otázka
 ```
 
 ## Obsah

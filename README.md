@@ -23,10 +23,17 @@ with a pronunciation guide so you can simply read them out loud.
 ```
  ┌─────────────────────────────────────────┐        ┌─────────────────────────────────────────┐
  │ [ŠPANĚLŠTINA]                           │        │ ANO 1/3: Ano, moc se mi tam líbí.       │
- │ Ahoj, odkud jsi? Líbí se ti Paraguay?   │   ──►  │ > sí, me gusta mučo                     │
+ │ Ahoj, odkud jsi? Líbí se ti Paraguay?   │  ──►   │ > sí, me gusta mučo                     │
  │                                         │        │                                         │
  └─────────────────────────────────────────┘        └─────────────────────────────────────────┘
-      while they speak: live translation              when they finish: replies + pronunciation
+    while they speak: live translation             finished → reply 1 (tap right ►)
+
+ ┌─────────────────────────────────────────┐        ┌─────────────────────────────────────────┐
+ │ NE 2/3: Upřímně, moc ne.                │        │ OTÁZKA 3/3: A ty jsi odkud?             │
+ │ > no mučo, la verdad                    │  ──►   │ > i tu, de donde eres                   │
+ │                                         │        │                                         │
+ └─────────────────────────────────────────┘        └─────────────────────────────────────────┘
+    reply 2: polite no (tap right ►)               reply 3: follow-up question
 ```
 
 > **Native language:** the app currently translates **into Czech** and writes pronunciation for Czech
