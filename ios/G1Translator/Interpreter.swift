@@ -35,6 +35,36 @@ struct LLMClient {
         return blocks.compactMap { $0["text"] as? String }.joined().trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    struct Model: Identifiable, Hashable {
+        let id: String
+        let name: String
+    }
+
+    /// Models available for this API key, newest first (GET /v1/models).
+    static func listModels(apiKey: String) async throws -> [Model] {
+        guard !apiKey.isEmpty else { throw LLMError.notConfigured }
+        var req = URLRequest(url: URL(string: "https://api.anthropic.com/v1/models?limit=100")!)
+        req.timeoutInterval = 20
+        req.setValue(apiKey, forHTTPHeaderField: "x-api-key")
+        req.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+        let (data, resp) = try await URLSession.shared.data(for: req)
+        let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+        guard let http = resp as? HTTPURLResponse, http.statusCode == 200 else {
+            let msg = ((json?["error"] as? [String: Any])?["message"] as? String) ?? "Could not load models"
+            throw LLMError.api(msg)
+        }
+        let items = json?["data"] as? [[String: Any]] ?? []
+        return items.compactMap { d in
+            guard let id = d["id"] as? String else { return nil }
+            return Model(id: id, name: (d["display_name"] as? String) ?? id)
+        }
+    }
+
+    /// Default: the newest fast, low-cost model (Haiku family), otherwise the newest model.
+    static func defaultModel(in models: [Model]) -> Model? {
+        models.first { $0.id.lowercased().contains("haiku") } ?? models.first
+    }
+
     enum LLMError: LocalizedError {
         case notConfigured, api(String)
         var errorDescription: String? {

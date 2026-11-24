@@ -45,6 +45,11 @@ final class TranslatorEngine: ObservableObject {
     // MARK: - Start / stop
 
     func start() async {
+        if settings.model.isEmpty, !settings.apiKey.isEmpty,
+           let models = try? await LLMClient.listModels(apiKey: settings.apiKey),
+           let def = LLMClient.defaultModel(in: models) {
+            settings.model = def.id
+        }
         guard settings.isConfigured else { status = "Add your API key and model in Settings."; return }
         guard await SpeechListener.requestPermissions() else {
             status = "Allow microphone and speech recognition in Settings."; return

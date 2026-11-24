@@ -31,7 +31,7 @@ open G1Translator.xcodeproj
 1. Open **G1 Translator** → Settings:
    - **They speak** – the language of the conversation (e.g. Spanish (Spain)).
    - **Your language** – translations, pronunciation and the glasses UI use it.
-   - **API key** and **Model ID** from the Anthropic Console (a fast, low-cost model is ideal).
+   - **API key** from the Anthropic Console – the model list loads automatically and the fastest low-cost model is preselected.
 2. **Close the Even Realities app** – the G1 accepts only one connection at a time.
 3. Take the glasses out of the case and press **Start**. Allow microphone, speech recognition and Bluetooth.
 

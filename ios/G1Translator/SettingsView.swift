@@ -5,6 +5,10 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     private let locales = Settings.speechLocales
 
+    @State private var models: [LLMClient.Model] = []
+    @State private var loadingModels = false
+    @State private var modelError: String?
+
     var body: some View {
         NavigationStack {
             Form {
@@ -26,12 +30,12 @@ struct SettingsView: View {
                 Section {
                     SecureField("API key", text: $settings.apiKey)
                         .textInputAutocapitalization(.never).autocorrectionDisabled()
-                    TextField("Model ID", text: $settings.model)
-                        .textInputAutocapitalization(.never).autocorrectionDisabled()
+                        .onSubmit { Task { await loadModels() } }
+                    modelPicker
                 } header: {
                     Text("Anthropic API")
                 } footer: {
-                    Text("Create a key in the Anthropic Console. Use a fast, low-cost model ID from the Anthropic docs. The key is stored in the iOS Keychain.")
+                    Text("Create a key in the Anthropic Console. The fastest low-cost model is selected by default. The key is stored in the iOS Keychain.")
                 }
 
                 Section("Conversation") {
@@ -52,6 +56,49 @@ struct SettingsView: View {
             }
             .navigationTitle("Settings")
             .toolbar { Button("Done") { dismiss() } }
+            .task { await loadModels() }
+            .onChange(of: settings.apiKey) { _, key in
+                if key.count > 20 { Task { await loadModels() } }
+            }
+        }
+    }
+
+    @ViewBuilder private var modelPicker: some View {
+        if loadingModels {
+            HStack { Text("Model"); Spacer(); ProgressView() }
+        } else if !models.isEmpty {
+            Picker("Model", selection: $settings.model) {
+                ForEach(models) { Text($0.name).tag($0.id) }
+                if !settings.model.isEmpty, !models.contains(where: { $0.id == settings.model }) {
+                    Text(settings.model).tag(settings.model)
+                }
+            }
+        } else {
+            TextField("Model ID", text: $settings.model)
+                .textInputAutocapitalization(.never).autocorrectionDisabled()
+            if let modelError {
+                Text(modelError).font(.footnote).foregroundStyle(.orange)
+            }
+            if !settings.apiKey.isEmpty {
+                Button("Load models") { Task { await loadModels() } }
+            }
+        }
+    }
+
+    private func loadModels() async {
+        guard !settings.apiKey.isEmpty, !loadingModels else { return }
+        loadingModels = true
+        defer { loadingModels = false }
+        do {
+            let list = try await LLMClient.listModels(apiKey: settings.apiKey)
+            models = list
+            modelError = nil
+            if settings.model.isEmpty || !list.contains(where: { $0.id == settings.model }),
+               let def = LLMClient.defaultModel(in: list) {
+                settings.model = def.id
+            }
+        } catch {
+            modelError = error.localizedDescription
         }
     }
 }
