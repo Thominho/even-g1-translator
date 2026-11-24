@@ -13,7 +13,8 @@
 
 ⭐ *O projeto ajudou você? Uma estrela ajuda outras pessoas a encontrá-lo – obrigado!*
 
-[🇬🇧 English](README.md) · [🇨🇿 Čeština](README.cs.md) · [🇸🇰 Slovenčina](README.sk.md) · [🇩🇪 Deutsch](README.de.md) · [🇪🇸 Español](README.es.md) · [🇫🇷 Français](README.fr.md) · [🇮🇹 Italiano](README.it.md) · **🇵🇹 Português** · [🇵🇱 Polski](README.pl.md) · [🇳🇱 Nederlands](README.nl.md)
+[🇬🇧 English](README.md) · [🇨🇿 Čeština](README.cs.md) · [🇸🇰 Slovenčina](README.sk.md) · [🇩🇪 Deutsch](README.de.md) · [🇪🇸 Español](README.es.md)<br>
+[🇫🇷 Français](README.fr.md) · [🇮🇹 Italiano](README.it.md) · **🇵🇹 Português** · [🇵🇱 Polski](README.pl.md) · [🇳🇱 Nederlands](README.nl.md)
 
 </div>
 
