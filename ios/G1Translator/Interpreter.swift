@@ -143,6 +143,24 @@ struct Interpreter {
         return out
     }
 
+    /// The user said something in their own language → how to say it in the conversation language.
+    func sayIt(_ text: String, lang: String, context: [String]) async throws -> Reply {
+        let system = """
+        The user is a native \(native) speaker talking with someone in \(lang), which the user does \
+        not speak. Translate what the user wants to say into natural, simple, polite spoken \(lang) \
+        (short sentences, fitting the conversation). Add a pronunciation guide written with \(native) \
+        spelling conventions so a \(native) speaker reading it naturally sounds right, and a very short \
+        \(native) summary of the meaning (max 6 words).
+        Return ONLY JSON: {"text": "...", "pron": "...", "meaning": "..."}
+        """
+        var user = ""
+        if !context.isEmpty { user += "Conversation so far:\n" + context.suffix(6).joined(separator: "\n") + "\n\n" }
+        user += "The user wants to say:\n\(text)"
+        let raw = try await llm.chat(system: system, user: user, maxTokens: 400)
+        if let d = Self.json(raw), let r = Self.reply(d, kind: "say") { return r }
+        throw LLMClient.LLMError.api("Could not translate")
+    }
+
     private static func json(_ raw: String) -> [String: Any]? {
         guard let start = raw.firstIndex(of: "{"), let end = raw.lastIndex(of: "}"), start < end,
               let data = String(raw[start...end]).data(using: .utf8) else { return nil }

@@ -75,6 +75,16 @@ struct ContentView: View {
                 .tint(engine.running ? .red : green.opacity(0.8))
 
                 if engine.running {
+                    Button {
+                        if engine.dictating { engine.stopSay() } else { engine.startSay() }
+                    } label: {
+                        Label(settings.t(engine.dictating ? "Stop and translate" : "Say it in my language"),
+                              systemImage: engine.dictating ? "checkmark.circle.fill" : "mic.badge.plus")
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(engine.dictating ? .orange : green)
+
                     HStack {
                         Button(settings.t(engine.paused ? "Resume" : "Pause")) { engine.togglePause() }
                         Spacer()

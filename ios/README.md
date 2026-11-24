@@ -41,6 +41,8 @@ The phone screen mirrors what the glasses show. The app keeps working with the s
 
 ## Notes
 
+- **Say it in my language:** hold the left TouchBar (or the button in the app), speak in your own language, release – the glasses show the sentence in the other language with pronunciation.
+
 - App interface: English by default; Czech, Slovak, German, Spanish, French, Italian, Portuguese, Polish and Dutch in Settings → App language.
 
 - iOS speech recognition needs the conversation language chosen in advance (no automatic detection).

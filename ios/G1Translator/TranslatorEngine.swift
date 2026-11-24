@@ -10,6 +10,7 @@ final class TranslatorEngine: ObservableObject {
     @Published private(set) var paused = false
     @Published private(set) var screen = ""
     @Published private(set) var status = ""
+    @Published private(set) var dictating = false
 
     let glasses: G1Glasses
     let listener = SpeechListener()
@@ -40,6 +41,7 @@ final class TranslatorEngine: ObservableObject {
         self.glasses = glasses
         listener.onSentence = { [weak self] in self?.onSentence($0) }
         listener.onPartial = { [weak self] _ in self?.cancelTurnTimer() }   // still talking
+        listener.onDictation = { [weak self] text in Task { await self?.sayIt(text) } }
         glasses.onEvent = { [weak self] ev, side in self?.onEvent(ev, side: side) }
         glasses.onAudio = { [weak self] lc3data in
             guard let self, self.running, !self.paused else { return }
@@ -215,7 +217,7 @@ final class TranslatorEngine: ObservableObject {
     /// All suggestions on one screen: "<sign> meaning: pronunciation" per line.
     /// If it would not fit on 5 lines, drop the header, then the meanings.
     private func renderAll() -> String {
-        let signs = ["yes": "+", "no": "-", "question": "?", "ask": "?"]
+        let signs = ["yes": "+", "no": "-", "question": "?", "ask": "?", "say": ">"]
         func build(header: Bool, meaning: Bool) -> String {
             var lines: [String] = header && mode == "ask" ? ["\(lang.t("ask")):"] : []
             for r in replies {
@@ -232,6 +234,35 @@ final class TranslatorEngine: ObservableObject {
         return build(header: false, meaning: false)
     }
 
+    // MARK: - Say it in my language
+
+    /// Hold (left TouchBar or the button in the app): the user speaks in their own language.
+    func startSay() {
+        guard running, !paused, !dictating else { return }
+        dictating = true
+        cancelTurnTimer()
+        listener.beginDictation(localeID: Lang.speechLocale(settings.nativeLanguage))
+        show("\(lang.t("say")):\n\(lang.t("speak"))")
+    }
+
+    func stopSay() {
+        guard dictating else { return }
+        dictating = false
+        listener.endDictation()
+    }
+
+    private func sayIt(_ text: String) async {
+        show("\(lang.t("say")): \(text)\n…")
+        do {
+            let r = try await interpreter.sayIt(text, lang: convLang, context: history)
+            replies = [r]; mode = "say"
+            followups?.cancel(); followups = nil
+            show("\(lang.t("say")): \(r.meaning)\n> \(r.pron.isEmpty ? r.text : r.pron)")
+        } catch {
+            status = error.localizedDescription
+        }
+    }
+
     // MARK: - Optional TouchBar
 
     private func onEvent(_ ev: G1Protocol.Event, side: String) {
@@ -245,7 +276,11 @@ final class TranslatorEngine: ObservableObject {
                 newConversation()
                 show("\(lang.t("new"))\n\(lang.t("listening"))")
             }
-        case .headUp, .longPress:
+        case .longPress where side == "L":
+            startSay()
+        case .longPressRelease:
+            stopSay()
+        case .headUp:
             if !replies.isEmpty { show(renderAll()) }
         default: break
         }

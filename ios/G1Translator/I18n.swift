@@ -26,25 +26,25 @@ struct Lang {
     static let supportedNative = ["en", "cs", "sk", "de", "es", "fr", "it", "pt", "pl", "nl"]
 
     private static let ui: [String: [String: String]] = [
-        "en": ["ask": "ASK", "listening": "Listening…", "paused": "Paused", "new": "New conversation",
+        "en": ["say": "SAY", "speak": "Speak…", "ask": "ASK", "listening": "Listening…", "paused": "Paused", "new": "New conversation",
                "you_said": "You said", "start": "Translator → {lang}"],
-        "cs": ["ask": "ZEPTEJ SE", "listening": "Poslouchám…", "paused": "Pauza", "new": "Nový rozhovor",
+        "cs": ["say": "ŘEKNI", "speak": "Mluv…", "ask": "ZEPTEJ SE", "listening": "Poslouchám…", "paused": "Pauza", "new": "Nový rozhovor",
                "you_said": "Řekl jsi", "start": "Překladač → {lang}"],
-        "sk": ["ask": "OPÝTAJ SA", "listening": "Počúvam…", "paused": "Pauza", "new": "Nový rozhovor",
+        "sk": ["say": "POVEDZ", "speak": "Hovor…", "ask": "OPÝTAJ SA", "listening": "Počúvam…", "paused": "Pauza", "new": "Nový rozhovor",
                "you_said": "Povedal si", "start": "Prekladač → {lang}"],
-        "de": ["ask": "FRAG", "listening": "Höre zu…", "paused": "Pause", "new": "Neues Gespräch",
+        "de": ["say": "SAG", "speak": "Sprich…", "ask": "FRAG", "listening": "Höre zu…", "paused": "Pause", "new": "Neues Gespräch",
                "you_said": "Du hast gesagt", "start": "Übersetzer → {lang}"],
-        "es": ["ask": "PREGUNTA", "listening": "Escuchando…", "paused": "Pausa", "new": "Nueva conversación",
+        "es": ["say": "DI", "speak": "Habla…", "ask": "PREGUNTA", "listening": "Escuchando…", "paused": "Pausa", "new": "Nueva conversación",
                "you_said": "Has dicho", "start": "Traductor → {lang}"],
-        "fr": ["ask": "DEMANDE", "listening": "J'écoute…", "paused": "Pause", "new": "Nouvelle conversation",
+        "fr": ["say": "DIS", "speak": "Parle…", "ask": "DEMANDE", "listening": "J'écoute…", "paused": "Pause", "new": "Nouvelle conversation",
                "you_said": "Vous avez dit", "start": "Traducteur → {lang}"],
-        "it": ["ask": "CHIEDI", "listening": "In ascolto…", "paused": "Pausa", "new": "Nuova conversazione",
+        "it": ["say": "DI'", "speak": "Parla…", "ask": "CHIEDI", "listening": "In ascolto…", "paused": "Pausa", "new": "Nuova conversazione",
                "you_said": "Hai detto", "start": "Traduttore → {lang}"],
-        "pt": ["ask": "PERGUNTE", "listening": "Ouvindo…", "paused": "Pausa", "new": "Nova conversa",
+        "pt": ["say": "DIGA", "speak": "Fale…", "ask": "PERGUNTE", "listening": "Ouvindo…", "paused": "Pausa", "new": "Nova conversa",
                "you_said": "Você disse", "start": "Tradutor → {lang}"],
-        "pl": ["ask": "ZAPYTAJ", "listening": "Słucham…", "paused": "Pauza", "new": "Nowa rozmowa",
+        "pl": ["say": "POWIEDZ", "speak": "Mów…", "ask": "ZAPYTAJ", "listening": "Słucham…", "paused": "Pauza", "new": "Nowa rozmowa",
                "you_said": "Powiedziałeś", "start": "Tłumacz → {lang}"],
-        "nl": ["ask": "VRAAG", "listening": "Luisteren…", "paused": "Pauze", "new": "Nieuw gesprek",
+        "nl": ["say": "ZEG", "speak": "Spreek…", "ask": "VRAAG", "listening": "Luisteren…", "paused": "Pauze", "new": "Nieuw gesprek",
                "you_said": "Je zei", "start": "Vertaler → {lang}"],
     ]
 
@@ -67,4 +67,10 @@ struct Lang {
     }
 
     static func englishName(_ code: String) -> String { english[code] ?? code }
+
+    /// Speech recognition locale for dictating in the native language.
+    static func speechLocale(_ code: String) -> String {
+        ["en": "en-US", "cs": "cs-CZ", "sk": "sk-SK", "de": "de-DE", "es": "es-ES", "fr": "fr-FR",
+         "it": "it-IT", "pt": "pt-BR", "pl": "pl-PL", "nl": "nl-NL"][code] ?? code
+    }
 }

@@ -20,6 +20,10 @@ final class SpeechListener: ObservableObject {
 
     var onPartial: ((String) -> Void)?
     var onSentence: ((String) -> Void)?
+    /// What the user said in their own language while dictating.
+    var onDictation: ((String) -> Void)?
+    private(set) var dictating = false
+    private var conversationLocale = ""
 
     var sentencePause: TimeInterval = 0.8
     private(set) var lastVoiceAt = Date.distantPast
@@ -54,6 +58,8 @@ final class SpeechListener: ObservableObject {
         stop()
         self.mode = mode
         self.online = online
+        conversationLocale = localeID
+        dictating = false
         stats = [:]
         activeSource = mode == .glasses ? .glasses : .phone
         guard let rec = SFSpeechRecognizer(locale: Locale(identifier: localeID)), rec.isAvailable else {
@@ -96,6 +102,39 @@ final class SpeechListener: ObservableObject {
         }
         running = false
         current = ""
+    }
+
+    // MARK: - Dictation ("say it in my language")
+
+    /// Switch recognition to the user's own language until `endDictation()`.
+    func beginDictation(localeID: String) {
+        guard running, !dictating,
+              let rec = SFSpeechRecognizer(locale: Locale(identifier: localeID)), rec.isAvailable else { return }
+        sentenceTimer?.cancel()
+        let pending = current.trimmingCharacters(in: .whitespacesAndNewlines)
+        task?.cancel(); request?.endAudio()
+        if !pending.isEmpty { onSentence?(pending) }
+        dictating = true
+        recognizer = rec
+        startRecognition()
+    }
+
+    func endDictation() {
+        guard dictating else { return }
+        Task {
+            try? await Task.sleep(for: .milliseconds(700))   // let the last words arrive
+            finishDictation()
+        }
+    }
+
+    private func finishDictation() {
+        guard dictating else { return }
+        let text = current.trimmingCharacters(in: .whitespacesAndNewlines)
+        dictating = false
+        task?.cancel(); request?.endAudio()
+        recognizer = SFSpeechRecognizer(locale: Locale(identifier: conversationLocale))
+        if running { startRecognition() }
+        if !text.isEmpty { onDictation?(text) }
     }
 
     // MARK: - Choosing the better microphone
@@ -146,6 +185,11 @@ final class SpeechListener: ObservableObject {
     private func chooseSource() {
         let now = Date()
         let glassesAlive = now.timeIntervalSince(stats[.glasses]?.lastSeen ?? .distantPast) < 1
+        // the user's own voice: the glasses microphone is made for it
+        if dictating, glassesAlive {
+            if activeSource != .glasses { activeSource = .glasses }
+            return
+        }
         if !glassesAlive {
             if activeSource != .phone { activeSource = .phone }
             betterSince = nil
@@ -241,6 +285,10 @@ final class SpeechListener: ObservableObject {
     }
 
     private func handle(text: String?, isFinal: Bool, failed: Bool) {
+        if dictating {
+            if let text, !text.isEmpty { current = text }
+            return
+        }
         if let text, !text.isEmpty, text != current {
             current = text
             onPartial?(text)

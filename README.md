@@ -51,6 +51,7 @@ with a pronunciation guide so you can simply read them out loud.
 - 🙌 **Completely hands-free** – no tapping, no buttons. Everything appears on its own; the TouchBar is optional.
 - ✅ **All three reply suggestions on one screen** when the speaker finishes: *yes / agree*, *polite no*, and a *follow-up question* (or "could you repeat that more slowly?" when the speech was unclear).
 - 🗣️ **Pronunciation guide** written for your native language – no need to know how the foreign words are spelled.
+- 🗣️ **Say anything** – hold the left TouchBar (or tap the button in the iPhone app), say it in your own language, and the glasses show it in the other language with a pronunciation guide.
 - 🔁 **Keeps the conversation going** – once you read a reply aloud, the glasses suggest questions to ask next: the same question back (*"And you?"*) plus two sensible follow-ups.
 - ⚡ **Instant replies** – suggestions are prepared in the background after every sentence, so they appear the moment the speaker stops (≈ 1.5–2 s after the last word).
 - 🙊 **Your own speech is ignored** – native-language speech is never translated, and the app recognises when you read one of the suggestions aloud.

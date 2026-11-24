@@ -45,6 +45,7 @@ mluví, a jakmile domluví, nabídnou **tři odpovědi v jeho jazyce** – naho�
 - 🙌 **Úplně bez rukou** – nic se neťuká, vše naskočí samo. TouchBar je jen volitelný.
 - ✅ **Všechny tři návrhy odpovědí na jedné obrazovce**, když mluvčí domluví: *ano / souhlas*, *zdvořilé ne* a *doplňující otázka* (nebo „zopakujte to prosím pomaleji“, když řeč nebyla srozumitelná).
 - 🗣️ **Výslovnost zapsaná česky** – nemusíte vědět, jak se cizí slova píšou.
+- 🗣️ **Řekněte cokoliv** – podržte levý TouchBar (nebo tlačítko v aplikaci pro iPhone), řekněte to česky a brýle ukážou větu v jazyce protějšku s výslovností.
 - 🔁 **Rozhovor nevázne** – jakmile nahlas přečtete odpověď, brýle nabídnou, na co se zeptat vy: stejnou otázku zpátky („A ty?“) a dvě další rozumné otázky.
 - ⚡ **Okamžité odpovědi** – návrhy se připravují na pozadí už po každé větě, takže naskočí hned, jak mluvčí přestane (≈ 1,5–2 s po posledním slově).
 - 🙊 **Vaše řeč se nepřekládá** – čeština se ignoruje a aplikace pozná, když nahlas přečtete jeden z návrhů.
