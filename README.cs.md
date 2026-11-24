@@ -67,7 +67,7 @@ Použití **bez notebooku**: nativní aplikace pro iPhone ve složce [`ios/`](io
 - **macOS** s Bluetooth (ideálně čip Apple Silicon kvůli rychlému lokálnímu přepisu)
 - **Python 3.11+**
 - Brýle **Even Realities G1** (pro simulátor nejsou potřeba)
-- Jazykový model: API klíč **Anthropic** nebo **OpenAI**, případně **Ollama** pro úplný offline
+- Jazykový model: API klíč **Anthropic (Claude API)** – výchozí, rychlý a levný Claude Haiku – nebo **OpenAI**, případně **Ollama** pro úplný offline
 
 ## Rychlý start
 
@@ -79,7 +79,7 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install -e .
 pip install mlx-whisper              # Apple Silicon  (Intel: pip install faster-whisper)
 
-cp config.example.toml config.toml   # nastavte native_language = "cs", [llm] backend a model
+cp config.example.toml config.toml   # nastavte native_language = "cs"; výchozí je Claude API s Claude Haiku
 export ANTHROPIC_API_KEY="..."       # nebo OPENAI_API_KEY – trvale do ~/.zshrc
 ```
 
@@ -151,7 +151,7 @@ a popisky v brýlích jsou česky. Funguje to stejně pro další jazyky (de, es
 | Část | Výchozí | Cena |
 |---|---|---|
 | Rozpoznání řeči | Whisper, **lokálně** | Zdarma |
-| Překlad + odpovědi | Cloudový LLM (rychlý, levný model) | Zlomky haléře až haléře za větu |
+| Překlad + odpovědi | Claude API (Claude Haiku) | Zlomky haléře až haléře za větu |
 | Úplně offline | [Ollama](https://ollama.com) + `qwen2.5:7b` | Zdarma, nižší kvalita |
 
 ```bash

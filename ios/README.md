@@ -5,7 +5,7 @@ The same hands-free translator as the desktop app – running on your **iPhone**
 | Step | Runs on | Cost |
 |---|---|---|
 | Speech → text | iOS built-in speech recognition (on-device where supported) | Free |
-| Translation, replies, questions | Anthropic API | Your API credit |
+| Translation, replies, questions | Claude API (Claude Haiku by default) | Your API credit |
 | Display | Even Realities G1 over Bluetooth LE | Free |
 
 ## Build and install (once, needs a Mac with Xcode)

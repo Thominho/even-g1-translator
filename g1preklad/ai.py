@@ -172,7 +172,7 @@ class OpenAICompat:
 def make_llm(cfg: dict):
     kind = cfg.get("backend", "anthropic")
     if kind == "anthropic":
-        return AnthropicLLM(cfg.get("model", ""), cfg.get("api_key_env", "ANTHROPIC_API_KEY"))
+        return AnthropicLLM(cfg.get("model") or "claude-haiku-5-5", cfg.get("api_key_env", "ANTHROPIC_API_KEY"))
     if kind == "ollama":
         return OpenAICompat(cfg.get("model", "qwen2.5:7b"),
                             cfg.get("base_url", "http://localhost:11434/v1"), None)

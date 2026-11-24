@@ -23,9 +23,8 @@ backend = "mlx-whisper"            # "mlx-whisper" (offline, Apple Silicon), "fa
 model = "mlx-community/whisper-large-v3-turbo"   # faster, less accurate: "mlx-community/whisper-small-mlx"
 
 [llm]                              # translation and reply suggestions
-backend = "anthropic"              # "anthropic", "openai", "ollama" (fully offline)
-model = ""                         # model ID from your provider's docs – a fast, low-cost model is ideal
-                                   # e.g. openai: "gpt-4o-mini", ollama: "qwen2.5:7b"
+backend = "anthropic"              # "anthropic" (Claude API), "openai", "ollama" (fully offline)
+model = "claude-haiku-5-5"         # fast, low-cost Claude model; openai: "gpt-4o-mini", ollama: "qwen2.5:7b"
 api_key_env = "ANTHROPIC_API_KEY"  # "OPENAI_API_KEY" for openai, not needed for ollama
 
 [audio]

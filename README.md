@@ -73,7 +73,7 @@ Use it **without a laptop**: a native iPhone app in [`ios/`](ios) does the same 
 - **macOS** with Bluetooth (Apple Silicon recommended for fast local speech recognition)
 - **Python 3.11+**
 - **Even Realities G1** smart glasses (optional for the simulator)
-- An LLM: an **Anthropic** or **OpenAI** API key, or **Ollama** for fully offline use
+- An LLM: an **Anthropic (Claude API)** key – default, fast and cheap with Claude Haiku – or **OpenAI**, or **Ollama** for fully offline use
 
 ## Quick start
 
@@ -85,7 +85,7 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install -e .
 pip install mlx-whisper              # Apple Silicon  (Intel: pip install faster-whisper)
 
-cp config.example.toml config.toml   # then set [llm] backend and model
+cp config.example.toml config.toml   # defaults: Claude API with Claude Haiku
 export ANTHROPIC_API_KEY="..."       # or OPENAI_API_KEY – add it to ~/.zshrc to keep it
 ```
 
@@ -146,7 +146,7 @@ All settings live in `config.toml` (see [`config.example.toml`](config.example.t
 | Component | Default | Cost |
 |---|---|---|
 | Speech recognition | Whisper, **local** | Free |
-| Translation + replies | Cloud LLM (fast, low-cost model) | Fractions of a cent per sentence |
+| Translation + replies | Claude API (Claude Haiku) | Fractions of a cent per sentence |
 | Fully offline | [Ollama](https://ollama.com) + `qwen2.5:7b` | Free, lower quality |
 
 ```bash
