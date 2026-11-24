@@ -26,6 +26,7 @@ mluví, a jakmile domluví, nabídnou **tři odpovědi v jeho jazyce** – naho�
 
 - [Funkce](#funkce)
 - [Jak to funguje](#jak-to-funguje)
+- [Aplikace pro iPhone](#-aplikace-pro-iphone)
 - [Požadavky](#požadavky)
 - [Rychlý start](#rychlý-start)
 - [Použití s brýlemi](#použití-s-brýlemi)
@@ -56,6 +57,10 @@ mluví, a jakmile domluví, nabídnou **tři odpovědi v jeho jazyce** – naho�
 
 Aplikace komunikuje s G1 přímo přes **Bluetooth Low Energy** (Nordic UART, obě stranice) podle
 oficiálního protokolu z [EvenDemoApp](https://github.com/even-realities/EvenDemoApp).
+
+## 📱 Aplikace pro iPhone
+
+Použití **bez notebooku**: nativní aplikace pro iPhone ve složce [`ios/`](ios) umí totéž – rozpoznávání řeči v iOS (zdarma, přímo v telefonu) + LLM API + displej G1. Jednou ji sestavíte v Xcode a pak běží v telefonu, i se zamčenou obrazovkou. Návod je v [ios/README.md](ios/README.md) (anglicky).
 
 ## Požadavky
 

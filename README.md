@@ -30,6 +30,7 @@ with a pronunciation guide so you can simply read them out loud.
 
 - [Features](#features)
 - [How it works](#how-it-works)
+- [iPhone app](#-iphone-app)
 - [Requirements](#requirements)
 - [Quick start](#quick-start)
 - [Using it with the glasses](#using-it-with-the-glasses)
@@ -62,6 +63,10 @@ with a pronunciation guide so you can simply read them out loud.
 
 The app talks to the G1 directly over **Bluetooth Low Energy** (Nordic UART, both temples), based on
 Even Realities' official [EvenDemoApp](https://github.com/even-realities/EvenDemoApp) protocol.
+
+## 📱 iPhone app
+
+Use it **without a laptop**: a native iPhone app in [`ios/`](ios) does the same – iOS speech recognition (free, on-device) + the LLM API + the G1 display. Build it once with Xcode, then it runs on your phone, even with the screen locked. See the [iPhone guide](ios/README.md).
 
 ## Requirements
 

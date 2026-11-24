@@ -5,3 +5,6 @@ __pycache__/
 *.egg-info/
 config.toml
 .DS_Store
+ios/*.xcodeproj/
+ios/G1Translator/Info.plist
+xcuserdata/
