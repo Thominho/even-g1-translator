@@ -279,7 +279,7 @@ async def _run(args) -> None:
 
 
 async def _demo(args) -> None:
-    """Otestuje Claude bez mikrofonu: přeloží větu a navrhne odpovědi."""
+    """Otestuje LLM bez mikrofonu: přeloží větu a navrhne odpovědi."""
     cfg = load_config(args.config)
     interp = Interpreter(make_llm(cfg.get("llm", {})))
     g = SimGlasses(interactive=False)
@@ -296,7 +296,7 @@ def main(argv: list[str] | None = None) -> None:
     sub = ap.add_subparsers(dest="cmd")
     r = sub.add_parser("run", help="spustit překladač")
     r.add_argument("--sim", action="store_true", help="simulátor v terminálu místo brýlí")
-    d = sub.add_parser("demo", help="test Claude: přeložit text a navrhnout odpovědi")
+    d = sub.add_parser("demo", help="test LLM: přeložit text a navrhnout odpovědi")
     d.add_argument("text")
     d.add_argument("--lang", default="es")
     args = ap.parse_args(argv)

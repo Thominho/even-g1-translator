@@ -1,4 +1,4 @@
-"""Přepis řeči s detekcí jazyka (Whisper) a překlad + návrhy odpovědí (Claude / Ollama)."""
+"""Přepis řeči s detekcí jazyka (Whisper) a překlad + návrhy odpovědí (LLM: Anthropic / OpenAI / Ollama)."""
 from __future__ import annotations
 
 import asyncio
@@ -150,8 +150,10 @@ def make_stt(cfg: dict):
 
 # ===================================================================== LLM
 
-class Claude:
-    def __init__(self, model: str = "claude-haiku-5-5", api_key_env: str = "ANTHROPIC_API_KEY"):
+class AnthropicLLM:
+    def __init__(self, model: str, api_key_env: str = "ANTHROPIC_API_KEY"):
+        if not model:
+            raise SystemExit("V config.toml chybí [llm] model (ID modelu podle dokumentace poskytovatele).")
         self.model, self.key = model, _env(api_key_env)
 
     def _run(self, system: str, user: str, max_tokens: int) -> str:
@@ -185,7 +187,7 @@ class OpenAICompat:
 def make_llm(cfg: dict):
     kind = cfg.get("backend", "anthropic")
     if kind == "anthropic":
-        return Claude(cfg.get("model", "claude-haiku-5-5"), cfg.get("api_key_env", "ANTHROPIC_API_KEY"))
+        return AnthropicLLM(cfg.get("model", ""), cfg.get("api_key_env", "ANTHROPIC_API_KEY"))
     if kind == "ollama":
         return OpenAICompat(cfg.get("model", "qwen2.5:7b"),
                             cfg.get("base_url", "http://localhost:11434/v1"), None)

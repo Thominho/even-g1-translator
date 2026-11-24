@@ -108,7 +108,7 @@ async def test_full_flow_spanish():
     assert g.screens[-1].startswith("OTÁZKA 3/3")
     await g.press("a")
     assert g.screens[-1].startswith("NE 2/3")
-    # kontext rozhovoru šel do Claude
+    # kontext rozhovoru šel do LLM
     assert "španělština" in llm.calls[-1][0]
     await t.stop()
 

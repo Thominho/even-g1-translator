@@ -1,30 +1,32 @@
-# g1preklad – zkopíruj jako config.toml
-# Claude API klíč patří do ~/.zshrc:  export ANTHROPIC_API_KEY="sk-ant-..."
+# g1preklad configuration – copy to config.toml and adjust.
+# API keys belong in environment variables (e.g. ~/.zshrc), never in this file:
+#   export ANTHROPIC_API_KEY="..."   or   export OPENAI_API_KEY="..."
 
 [translator]
-replies = true                     # po domluvení nabídnout odpovědi (ANO / NE / OTÁZKA)
-show_spelling = false              # true = pod výslovností i jak se odpověď píše
-turn_end_s = 1.5                  # jak dlouhé ticho = "domluvil" (s)
-sentence_pause_s = 0.7             # pauza mezi větami (s) – kratší = rychlejší titulky
-new_conversation_after_s = 90      # po takovém tichu se zapomene jazyk a kontext
-show_original = false              # originál nad překladem (ťuk vlevo přepíná)
-ignore_languages = ["cs"]          # tyhle jazyky se nepřekládají (přidej třeba "sk")
-min_language_probability = 0.6     # nejistá detekce u krátké věty → drží jazyk rozhovoru
+replies = true                     # offer 3 reply suggestions when the speaker finishes
+show_spelling = false              # also show how the reply is written (below the pronunciation)
+turn_end_s = 1.5                   # seconds of silence = speaker finished
+sentence_pause_s = 0.7             # pause between sentences – lower = faster subtitles
+new_conversation_after_s = 90      # after this much silence, forget language and context
+show_original = false              # original text above the translation (tap left toggles)
+ignore_languages = ["cs"]          # languages that are never translated (e.g. add "sk")
+min_language_probability = 0.6     # uncertain detection on short sentences keeps the conversation language
 
-[stt]
-backend = "mlx-whisper"            # "mlx-whisper" (offline, Mac M1–M4), "faster-whisper" (offline), "openai" (API)
-model = "mlx-community/whisper-large-v3-turbo"   # rychlejší a horší: "mlx-community/whisper-small-mlx"
+[stt]                              # speech-to-text
+backend = "mlx-whisper"            # "mlx-whisper" (offline, Apple Silicon), "faster-whisper" (offline), "openai" (API)
+model = "mlx-community/whisper-large-v3-turbo"   # faster, less accurate: "mlx-community/whisper-small-mlx"
 
-[llm]
-backend = "anthropic"              # "anthropic" (Claude), "ollama" (offline, lokálně), "openai"
-model = "claude-haiku-5-5"
-api_key_env = "ANTHROPIC_API_KEY"
+[llm]                              # translation and reply suggestions
+backend = "anthropic"              # "anthropic", "openai", "ollama" (fully offline)
+model = ""                         # model ID from your provider's docs – a fast, low-cost model is ideal
+                                   # e.g. openai: "gpt-4o-mini", ollama: "qwen2.5:7b"
+api_key_env = "ANTHROPIC_API_KEY"  # "OPENAI_API_KEY" for openai, not needed for ollama
 
 [audio]
-source = "mac"                     # "mac" = mikrofon Macu/iPhonu přes Continuity/AirPods, "glasses" = mikrofon brýlí (liblc3)
-threshold = 500                    # citlivost detekce řeči
+source = "mac"                     # "mac" = Mac / AirPods microphone, "glasses" = G1 microphone (needs liblc3)
+threshold = 500                    # speech detection sensitivity (higher = less sensitive)
 
 [glasses]
-chars_per_line = 38
+chars_per_line = 38                # tune if lines wrap oddly (30–42)
 heartbeat_s = 8
-# channel = "45"
+# channel = "45"                   # number from the BLE name G1_45_L_…, if several glasses are nearby

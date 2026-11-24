@@ -1,126 +1,209 @@
-# g1preklad – live translator with reply suggestions for Even Realities G1
+<div align="center">
 
-**English** | [Čeština](README.cs.md)
+# Even G1 Live Translator
 
-An unofficial companion app for the **Even Realities G1** smart glasses, running on macOS.
-When someone talks to you in **any language other than Czech**, the glasses show a live
-**Czech translation**. The first sentence tells you **which language** is being spoken. When the
-speaker **finishes**, you get **3 reply suggestions in their language** – the Czech meaning on top
-and, below it, a **pronunciation written for Czech speakers**, so you can just read it out loud.
+**Real-time speech translation with smart reply suggestions for Even Realities G1 smart glasses**
+
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
+[![Platform: macOS](https://img.shields.io/badge/platform-macOS-lightgrey.svg)](#requirements)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Even Realities G1](https://img.shields.io/badge/device-Even%20Realities%20G1-black.svg)](https://www.evenrealities.com/g1)
+
+**English** · [Čeština](README.cs.md)
+
+</div>
+
+---
+
+Someone speaks to you in a language you don't know – Spanish, English, German, anything.
+Your **Even Realities G1** glasses show a **live translation**, tell you **which language** is being
+spoken and, as soon as the speaker finishes, offer **three ready-to-say replies in their language**,
+with a pronunciation guide so you can simply read them out loud.
 
 ```
-┌────────────────────────────────────────┐      ┌────────────────────────────────────────┐
-│ [ŠPANĚLŠTINA]                          │      │ ANO 1/3: Ano, moc se mi tam líbí.      │
-│ Ahoj, odkud jsi? Líbí se ti Paraguay?  │  →   │ > sí, me gusta mučo                    │
-│                                        │      │                                        │
-└────────────────────────────────────────┘      └────────────────────────────────────────┘
-   speaker talking (Spanish → Czech)               speaker finished → tap right = next reply
+ ┌─────────────────────────────────────────┐        ┌─────────────────────────────────────────┐
+ │ [ŠPANĚLŠTINA]                           │        │ ANO 1/3: Ano, moc se mi tam líbí.       │
+ │ Ahoj, odkud jsi? Líbí se ti Paraguay?   │   ──►  │ > sí, me gusta mučo                     │
+ │                                         │        │                                         │
+ └─────────────────────────────────────────┘        └─────────────────────────────────────────┘
+      while they speak: live translation              when they finish: replies + pronunciation
 ```
 
-Reply suggestions: **ANO** (yes / agree / thanks) · **NE** (polite no) · **OTÁZKA** (a follow-up
-question, or "could you repeat that more slowly?" when the speech didn't make sense).
+> **Native language:** the app currently translates **into Czech** and writes pronunciation for Czech
+> speakers. See [Adapting to another language](#adapting-to-another-language).
 
-> The target language is Czech – the UI, prompts and pronunciation are made for Czech speakers.
-> Adapting it to another native language means changing `HOME_LANG` in `app.py` and the prompts in `ai.py`.
+## Table of contents
+
+- [Features](#features)
+- [How it works](#how-it-works)
+- [Requirements](#requirements)
+- [Quick start](#quick-start)
+- [Using it with the glasses](#using-it-with-the-glasses)
+- [Controls](#controls)
+- [Configuration](#configuration)
+- [Offline mode and costs](#offline-mode-and-costs)
+- [Adapting to another language](#adapting-to-another-language)
+- [Project structure](#project-structure)
+- [Troubleshooting](#troubleshooting)
+- [Contributing](#contributing)
+- [License](#license)
 
 ## Features
 
-- **Automatic language detection** (Whisper) – works with any language, switches when someone else speaks another one.
-- **Czech speech is ignored**, so your own sentences are never translated (`ignore_languages`).
-- **Recognises when you read a suggestion aloud** and doesn't translate it back.
-- Holds the conversation language on short, uncertain sentences.
-- Translation and replies use the earlier conversation as context.
-- Speech-to-text runs **offline on your Mac**; translation and replies use **Claude** (or a local model via Ollama for fully offline use).
-
-## Controls (TouchBar)
-
-| Gesture | Action |
-|---|---|
-| tap right / left | next / previous reply suggestion |
-| double tap | close suggestions · again = new conversation (forget language and context) |
-| hold right / head up | show suggestions again |
-| tap left (no suggestions) | toggle original text above translation |
-| triple tap | pause / resume |
-
-## Installation (macOS)
-
-```bash
-git clone https://github.com/Thominho/even-g1-translator.git
-cd even-g1-translator
-python3 -m venv .venv && source .venv/bin/activate
-pip install -e .
-pip install mlx-whisper            # Apple Silicon (Intel Mac: pip install faster-whisper, set backend = "faster-whisper")
-cp config.example.toml config.toml
-echo 'export ANTHROPIC_API_KEY="sk-ant-..."' >> ~/.zshrc && source ~/.zshrc
-```
-
-On first run macOS asks for microphone and Bluetooth access for your terminal – allow both.
-The first run also downloads the Whisper model (~1.5 GB for large-v3-turbo); after that,
-transcription works offline.
-
-## Try it
-
-```bash
-python -m g1preklad demo "¿Te gusta vivir en Paraguay?"   # test Claude without a microphone
-python -m g1preklad run --sim                            # Mac microphone, display simulated in the terminal
-```
-
-In the simulator, play a Spanish or English video and watch the terminal.
-Keys + Enter: `d`/`a` tap right/left, `aa` double tap, `ttt` triple tap, `H` hold right, `q` quit.
-
-## With the glasses
-
-1. Close the Even Realities app on your phone (the glasses accept only one connection at a time).
-2. `python -m g1preklad run`
-
-## Cost / offline
-
-- **Speech-to-text** (Whisper) runs **locally** – free.
-- **Translation and replies** use Claude Haiku – a fraction of a cent per sentence.
-- **Fully offline**: `brew install ollama && ollama pull qwen2.5:7b`, then in `config.toml`
-  set `[llm] backend = "ollama"` and `model = "qwen2.5:7b"`. Quality will be noticeably lower.
-
-## Tuning
-
-- Subtitles too slow → `sentence_pause_s = 0.5`, smaller Whisper model.
-- Suggestions appear too early / late → `turn_end_s` (default 1.5 s of silence).
-- Picks up background noise → raise `[audio] threshold`.
-- Odd line wrapping → `[glasses] chars_per_line`.
-- Want to see the spelling of replies too → `show_spelling = true`.
+- 🌍 **Automatic language detection** – works with ~100 languages and switches on the fly when a different person speaks another language.
+- 💬 **Live translation** sentence by sentence, using the conversation so far as context.
+- 🏷️ **Language label** on the first sentence, so you always know what you're hearing.
+- ✅ **Three reply suggestions** when the speaker finishes: *yes / agree*, *polite no*, and a *follow-up question* (or "could you repeat that more slowly?" when the speech was unclear).
+- 🗣️ **Pronunciation guide** written for your native language – no need to know how the foreign words are spelled.
+- 🙊 **Your own speech is ignored** – native-language speech is never translated, and the app recognises when you read one of the suggestions aloud.
+- 🔒 **Speech recognition runs locally** on your Mac (Whisper); a **fully offline mode** is available with a local model.
+- 🧪 **Terminal simulator** – develop and test without the glasses.
 
 ## How it works
 
 ```
-mic (Mac / glasses) → speech segmentation → Whisper (text + language)
-   → Claude: Czech translation → G1 display (BLE, Nordic UART, command 0x4E)
-   → silence = speaker finished → Claude: 3 replies + pronunciation → G1 display
+ microphone ─► speech segmentation ─► Whisper (text + language)
+                                          │
+                                          ├─► LLM: translation ─────────────► G1 display (Bluetooth LE)
+                                          │
+                     speaker finished ────┴─► LLM: 3 replies + pronunciation ─► G1 display
 ```
 
-| File | Purpose |
+The app talks to the G1 directly over **Bluetooth Low Energy** (Nordic UART, both temples), based on
+Even Realities' official [EvenDemoApp](https://github.com/even-realities/EvenDemoApp) protocol.
+
+## Requirements
+
+- **macOS** with Bluetooth (Apple Silicon recommended for fast local speech recognition)
+- **Python 3.11+**
+- **Even Realities G1** smart glasses (optional for the simulator)
+- An LLM: an **Anthropic** or **OpenAI** API key, or **Ollama** for fully offline use
+
+## Quick start
+
+```bash
+git clone https://github.com/Thominho/even-g1-translator.git
+cd even-g1-translator
+
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e .
+pip install mlx-whisper              # Apple Silicon  (Intel: pip install faster-whisper)
+
+cp config.example.toml config.toml   # then set [llm] backend and model
+export ANTHROPIC_API_KEY="..."       # or OPENAI_API_KEY – add it to ~/.zshrc to keep it
+```
+
+Test the translation and replies without a microphone:
+
+```bash
+python -m g1preklad demo "¿Te gusta vivir en Paraguay?"
+```
+
+Run the full app with a **simulated display** in the terminal (uses your Mac microphone –
+try playing a video in a foreign language):
+
+```bash
+python -m g1preklad run --sim
+```
+
+On the first run macOS asks for **microphone** and **Bluetooth** access for your terminal, and the
+Whisper model (~1.5 GB) is downloaded once.
+
+## Using it with the glasses
+
+1. **Close the Even Realities app** on your phone – the G1 accepts only one connection at a time.
+2. Take the glasses out of the case and put them on.
+3. Run:
+
+```bash
+python -m g1preklad run
+```
+
+## Controls
+
+| TouchBar gesture | Action |
 |---|---|
-| `g1preklad/protocol.py` | G1 BLE protocol (UUIDs, 0x4E text, 0x0E mic, 0xF5 events, heartbeat) |
-| `g1preklad/glasses.py` | Connection to both arms (bleak) + terminal simulator |
-| `g1preklad/audio.py` | Mac / glasses microphone (LC3), speech segmentation |
-| `g1preklad/ai.py` | Whisper (mlx / faster-whisper / OpenAI), Claude / Ollama, prompts |
-| `g1preklad/app.py` | Translator logic and CLI |
+| Tap right / left | Next / previous reply suggestion |
+| Double tap | Close suggestions · again: start a new conversation |
+| Hold right / look up | Show the suggestions again |
+| Tap left (no suggestions shown) | Toggle the original text above the translation |
+| Triple tap | Pause / resume |
 
-Tests (no hardware needed): `python -m pytest`
+Simulator keys (type + Enter): `d` / `a` tap right / left · `aa` double tap · `ttt` triple tap · `H` hold right · `q` quit.
 
-## Status
+## Configuration
 
-The BLE protocol follows Even Realities' official
-[EvenDemoApp](https://github.com/even-realities/EvenDemoApp) and community documentation.
-**It has not yet been tested on real hardware** – line wrapping, heartbeat interval and TouchBar
-events may need tuning. If something doesn't work, run `python -m g1preklad -v run` and open an issue
-with the log.
+All settings live in `config.toml` (see [`config.example.toml`](config.example.toml)).
 
-Using the glasses' own microphone (`[audio] source = "glasses"`) requires Google's
-[liblc3](https://github.com/google/liblc3); the default is the Mac microphone.
+| Setting | Default | Description |
+|---|---|---|
+| `translator.replies` | `true` | Offer reply suggestions |
+| `translator.turn_end_s` | `1.5` | Silence (s) that ends the speaker's turn |
+| `translator.sentence_pause_s` | `0.7` | Pause between sentences – lower means faster subtitles |
+| `translator.show_spelling` | `false` | Show the written reply below the pronunciation |
+| `translator.ignore_languages` | `["cs"]` | Languages that are never translated |
+| `stt.backend` | `mlx-whisper` | `mlx-whisper`, `faster-whisper` or `openai` |
+| `llm.backend` | `anthropic` | `anthropic`, `openai` or `ollama` |
+| `audio.source` | `mac` | `mac` (Mac/AirPods mic) or `glasses` (G1 mic, needs [liblc3](https://github.com/google/liblc3)) |
+| `glasses.chars_per_line` | `38` | Line width on the G1 display |
 
-## Disclaimer
+## Offline mode and costs
 
-Not affiliated with or endorsed by Even Realities. Use at your own risk.
+| Component | Default | Cost |
+|---|---|---|
+| Speech recognition | Whisper, **local** | Free |
+| Translation + replies | Cloud LLM (fast, low-cost model) | Fractions of a cent per sentence |
+| Fully offline | [Ollama](https://ollama.com) + `qwen2.5:7b` | Free, lower quality |
+
+```bash
+brew install ollama && ollama pull qwen2.5:7b
+# config.toml →  [llm] backend = "ollama"   model = "qwen2.5:7b"
+```
+
+## Adapting to another language
+
+The target language is Czech. To use another native language, change `HOME_LANG` in
+[`g1preklad/app.py`](g1preklad/app.py), the prompts in [`g1preklad/ai.py`](g1preklad/ai.py)
+(translation target and pronunciation spelling) and `ignore_languages` in your config.
+Pull requests that make this configurable are very welcome.
+
+## Project structure
+
+| Path | Purpose |
+|---|---|
+| [`g1preklad/protocol.py`](g1preklad/protocol.py) | G1 BLE protocol – text (0x4E), microphone (0x0E), TouchBar events (0xF5), heartbeat |
+| [`g1preklad/glasses.py`](g1preklad/glasses.py) | Connection to both temples (`bleak`) and the terminal simulator |
+| [`g1preklad/audio.py`](g1preklad/audio.py) | Mac / G1 microphone (LC3), speech segmentation |
+| [`g1preklad/ai.py`](g1preklad/ai.py) | Speech-to-text backends, LLM backends, prompts |
+| [`g1preklad/app.py`](g1preklad/app.py) | Translator logic and command-line interface |
+| [`tests/`](tests) | Tests that run without hardware: `python -m pytest` |
+
+## Troubleshooting
+
+| Problem | Fix |
+|---|---|
+| Glasses not found | Close the Even Realities app / turn off Bluetooth on your phone; run `python -m g1preklad -v run` |
+| Lines wrap oddly | Adjust `glasses.chars_per_line` |
+| Subtitles lag | Lower `sentence_pause_s`, use a smaller Whisper model |
+| Suggestions appear too early / late | Adjust `turn_end_s` |
+| Background noise gets translated | Raise `audio.threshold` |
+| Connection drops | Lower `glasses.heartbeat_s` |
+
+> **Project status:** early release. The BLE implementation follows the official protocol
+> documentation but has had limited testing on real hardware. Bug reports with a `-v` log are appreciated.
+
+## Contributing
+
+Issues and pull requests are welcome – especially hardware test reports, support for more native
+languages, and Linux / Windows testing.
+
+## ⭐ Support the project
+
+If this project helped you understand someone, or saved you an awkward moment abroad,
+**please consider giving it a star** – it helps others find it. Thank you in advance! 🙏
 
 ## License
 
-MIT
+[MIT](LICENSE)
+
+*Not affiliated with or endorsed by Even Realities. "Even Realities" and "G1" are trademarks of their respective owner.*
