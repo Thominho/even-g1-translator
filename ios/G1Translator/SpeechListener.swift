@@ -36,8 +36,14 @@ final class SpeechListener: ObservableObject {
         return speech && mic
     }
 
-    func start(localeID: String) {
+    /// true = audio comes from the glasses (appendPCM), the phone microphone only keeps the app alive.
+    nonisolated(unsafe) private var externalAudio = false
+    private let pcmFormat = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: 16_000,
+                                          channels: 1, interleaved: false)!
+
+    func start(localeID: String, externalAudio: Bool = false) {
         stop()
+        self.externalAudio = externalAudio
         guard let rec = SFSpeechRecognizer(locale: Locale(identifier: localeID)), rec.isAvailable else {
             error = "Speech recognition is not available for \(localeID)."
             return
@@ -92,7 +98,7 @@ final class SpeechListener: ObservableObject {
     // Callbacks arrive on background threads: build them outside the main actor.
     nonisolated private static func makeTap(_ listener: SpeechListener) -> AVAudioNodeTapBlock {
         { [weak listener] buffer, _ in
-            guard let listener else { return }
+            guard let listener, !listener.externalAudio else { return }
             listener.tapRequest?.append(buffer)
             if rms(buffer) > 0.015 {
                 Task { @MainActor in listener.lastVoiceAt = Date() }
@@ -111,6 +117,26 @@ final class SpeechListener: ObservableObject {
                 listener.handle(text: text, isFinal: isFinal, failed: failed)
             }
         }
+    }
+
+    /// 16 kHz mono Int16 PCM from the glasses microphone.
+    func appendPCM(_ data: Data) {
+        guard running, externalAudio, data.count >= 2 else { return }
+        let frames = AVAudioFrameCount(data.count / 2)
+        guard let buffer = AVAudioPCMBuffer(pcmFormat: pcmFormat, frameCapacity: frames),
+              let channel = buffer.int16ChannelData?[0] else { return }
+        buffer.frameLength = frames
+        var sum: Float = 0
+        data.withUnsafeBytes { raw in
+            let src = raw.bindMemory(to: Int16.self)
+            for i in 0..<Int(frames) {
+                channel[i] = src[i]
+                let v = Float(src[i]) / 32768
+                sum += v * v
+            }
+        }
+        tapRequest?.append(buffer)
+        if (sum / Float(frames)).squareRoot() > 0.015 { lastVoiceAt = Date() }
     }
 
     private func handle(text: String?, isFinal: Bool, failed: Bool) {

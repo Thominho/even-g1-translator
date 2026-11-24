@@ -13,6 +13,7 @@ final class TranslatorEngine: ObservableObject {
 
     let glasses: G1Glasses
     let listener = SpeechListener()
+    private let lc3 = Lc3Decoder()
     let settings: Settings
 
     private var lang: Lang { Lang(code: settings.nativeLanguage) }
@@ -40,6 +41,10 @@ final class TranslatorEngine: ObservableObject {
         listener.onSentence = { [weak self] in self?.onSentence($0) }
         listener.onPartial = { [weak self] _ in self?.cancelTurnTimer() }   // still talking
         glasses.onEvent = { [weak self] ev, side in self?.onEvent(ev, side: side) }
+        glasses.onAudio = { [weak self] lc3data in
+            guard let self, self.running, !self.paused else { return }
+            self.listener.appendPCM(self.lc3.decode(lc3data))
+        }
     }
 
     // MARK: - Start / stop
@@ -56,8 +61,9 @@ final class TranslatorEngine: ObservableObject {
         }
         glasses.charsPerLine = settings.charsPerLine
         if !glasses.isConnected { glasses.connect() }
-        listener.start(localeID: settings.speechLocale)
+        listener.start(localeID: settings.speechLocale, externalAudio: settings.useGlassesMic)
         if let err = listener.error { status = err; return }
+        glasses.setMic(settings.useGlassesMic)
         running = true
         paused = false
         status = ""
@@ -67,6 +73,7 @@ final class TranslatorEngine: ObservableObject {
     }
 
     func stop() {
+        glasses.setMic(false)
         listener.stop()
         cancelTurnTimer()
         running = false
@@ -75,7 +82,13 @@ final class TranslatorEngine: ObservableObject {
 
     func togglePause() {
         paused.toggle()
-        if paused { listener.stop() } else { listener.start(localeID: settings.speechLocale) }
+        if paused {
+            glasses.setMic(false)
+            listener.stop()
+        } else {
+            listener.start(localeID: settings.speechLocale, externalAudio: settings.useGlassesMic)
+            glasses.setMic(settings.useGlassesMic)
+        }
         show(paused ? lang.t("paused") : lang.t("listening"))
     }
 

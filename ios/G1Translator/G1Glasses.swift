@@ -9,6 +9,12 @@ final class G1Glasses: NSObject, ObservableObject {
     @Published private(set) var state: State = .idle
     @Published private(set) var lastScreen = ""
     var onEvent: ((G1Protocol.Event, String) -> Void)?
+    /// LC3 audio from the glasses microphone (payload without the 2-byte header).
+    var onAudio: ((Data) -> Void)?
+    /// Keep the glasses microphone on (re-enabled after reconnects).
+    var wantMic = false
+    private(set) var lastAudioAt = Date.distantPast
+    private var micWatchdog: Task<Void, Never>?
     var charsPerLine: Double = 38
 
     private var central: CBCentralManager!
@@ -49,6 +55,7 @@ final class G1Glasses: NSObject, ObservableObject {
     func disconnect() {
         wantConnect = false
         heartbeatTask?.cancel()
+        micWatchdog?.cancel()
         for p in peripherals.values { central.cancelPeripheralConnection(p) }
         peripherals = [:]; writeChars = [:]
         state = .idle
@@ -108,6 +115,28 @@ final class G1Glasses: NSObject, ObservableObject {
         }
     }
 
+    // MARK: - Microphone
+
+    /// Turns the glasses microphone on/off (command 0x0E, right temple – as in the official demo).
+    func setMic(_ on: Bool) {
+        wantMic = on
+        guard isConnected else { return }
+        Task { await self.write(Data([G1Protocol.cmdMic, on ? 1 : 0]), side: "R", waitAck: true) }
+        micWatchdog?.cancel()
+        guard on else { return }
+        lastAudioAt = Date()
+        // if the audio stops (glasses switched the mic off), switch it on again
+        micWatchdog = Task {
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(3))
+                if self.wantMic, self.isConnected, Date().timeIntervalSince(self.lastAudioAt) > 3 {
+                    self.lastAudioAt = Date()
+                    await self.write(Data([G1Protocol.cmdMic, 1]), side: "R", waitAck: false)
+                }
+            }
+        }
+    }
+
     private func startHeartbeat() {
         heartbeatTask?.cancel()
         heartbeatTask = Task {
@@ -126,6 +155,11 @@ final class G1Glasses: NSObject, ObservableObject {
 
     fileprivate func handle(_ data: Data, from side: String) {
         guard let first = data.first else { return }
+        if first == G1Protocol.cmdMicData, data.count > 2 {
+            lastAudioAt = Date()
+            onAudio?(data.subdata(in: 2..<data.count))
+            return
+        }
         if first == G1Protocol.cmdEvent, data.count >= 2 {
             if var ev = G1Protocol.Event(rawValue: data[1]) {
                 if ev == .tripleTap2 { ev = .tripleTap }
@@ -143,6 +177,7 @@ final class G1Glasses: NSObject, ObservableObject {
         if writeChars["L"] != nil, writeChars["R"] != nil, state != .connected {
             state = .connected
             startHeartbeat()
+            if wantMic { setMic(true) }
             if !lastScreen.isEmpty { show(lastScreen) }
         }
     }

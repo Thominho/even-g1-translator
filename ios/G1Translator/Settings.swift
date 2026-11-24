@@ -14,6 +14,7 @@ final class Settings: ObservableObject {
     @Published var followUps: Bool { didSet { d.set(followUps, forKey: "followUps") } }
     @Published var turnEnd: Double { didSet { d.set(turnEnd, forKey: "turnEnd") } }
     @Published var charsPerLine: Double { didSet { d.set(charsPerLine, forKey: "charsPerLine") } }
+    @Published var useGlassesMic: Bool { didSet { d.set(useGlassesMic, forKey: "glassesMic") } }
     @Published var apiKey: String { didSet { Keychain.save(apiKey, for: "apiKey") } }
 
     init() {
@@ -26,6 +27,7 @@ final class Settings: ObservableObject {
         followUps = d.object(forKey: "followUps") as? Bool ?? true
         turnEnd = d.object(forKey: "turnEnd") as? Double ?? 1.5
         charsPerLine = d.object(forKey: "charsPerLine") as? Double ?? 38
+        useGlassesMic = d.object(forKey: "glassesMic") as? Bool ?? true
         apiKey = Keychain.load("apiKey") ?? ""
     }
 

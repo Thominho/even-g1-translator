@@ -38,6 +38,17 @@ struct SettingsView: View {
                     Text("Create a key in the Anthropic Console. The fastest low-cost model is selected by default. The key is stored in the iOS Keychain.")
                 }
 
+                Section {
+                    Picker("Microphone", selection: $settings.useGlassesMic) {
+                        Text("G1 glasses").tag(true)
+                        Text("iPhone / AirPods").tag(false)
+                    }
+                } header: {
+                    Text("Audio")
+                } footer: {
+                    Text("With the glasses microphone your iPhone can stay in your pocket.")
+                }
+
                 Section("Conversation") {
                     Toggle("Suggest replies", isOn: $settings.replies)
                     Toggle("Suggest questions to ask back", isOn: $settings.followUps)

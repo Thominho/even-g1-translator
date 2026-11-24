@@ -10,6 +10,8 @@ enum G1Protocol {
     static let cmdText: UInt8 = 0x4E
     static let cmdEvent: UInt8 = 0xF5
     static let cmdHeartbeat: UInt8 = 0x25
+    static let cmdMic: UInt8 = 0x0E
+    static let cmdMicData: UInt8 = 0xF1
     static let rspOK: UInt8 = 0xC9
     static let rspFail: UInt8 = 0xCA
 

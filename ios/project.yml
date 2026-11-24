@@ -13,10 +13,14 @@ targets:
   G1Translator:
     type: application
     platform: iOS
-    sources: [G1Translator]
+    sources:
+      - path: G1Translator
+        excludes: ["lc3/NOTICE.md"]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.example.g1translator
+        SWIFT_OBJC_BRIDGING_HEADER: G1Translator/G1Translator-Bridging-Header.h
+        GCC_OPTIMIZATION_LEVEL: s
         TARGETED_DEVICE_FAMILY: "1"
         MARKETING_VERSION: "0.1.0"
         CURRENT_PROJECT_VERSION: "1"
