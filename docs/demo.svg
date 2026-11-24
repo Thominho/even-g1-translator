@@ -1,25 +1,28 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="980" height="430" viewBox="0 0 980 430" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">
-<rect width="980" height="430" rx="16" fill="#0b0f0d"/>
-<text x="40" y="48" fill="#8b949e" font-size="14" text-anchor="start" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">WHILE THEY SPEAK</text>
-<text x="520" y="48" fill="#8b949e" font-size="14" text-anchor="start" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">WHEN THEY FINISH – 3 REPLIES</text>
-<rect x="40" y="64" width="400" height="150" rx="10" fill="#050806" stroke="#2a9d63" stroke-width="1.5"/>
-<text x="60" y="98" fill="#2a9d63" font-size="17" font-weight="700">[SPANISH]</text>
-<text x="60" y="126" fill="#3cff8f" font-size="17">Hi, where are you from?</text>
-<text x="60" y="154" fill="#3cff8f" font-size="17">Do you like Paraguay?</text>
-<text x="40" y="240" fill="#8b949e" font-size="14" text-anchor="start" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">Live translation, language shown</text>
-<text x="40" y="262" fill="#8b949e" font-size="14" text-anchor="start" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">on the first sentence.</text>
-<path d="M455 139 H500" stroke="#2a9d63" stroke-width="2.5" fill="none"/><path d="M500 131 L512 139 L500 147 Z" fill="#2a9d63"/>
-<rect x="520" y="64" width="420" height="96" rx="10" fill="#050806" stroke="#2a9d63" stroke-width="1.5"/>
-<text x="540" y="100" font-size="17"><tspan fill="#2a9d63" font-weight="700">YES 1/3:</tspan><tspan dx="10" fill="#3cff8f">Yes, I really like it.</tspan></text>
-<text x="540" y="132" font-size="17" fill="#3cff8f">&gt; see, meh GOOS-tah MOO-choh</text>
-<text x="928" y="84" font-size="12" fill="#8b949e" text-anchor="end" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">yes</text>
-<rect x="520" y="172" width="420" height="96" rx="10" fill="#050806" stroke="#2a9d63" stroke-width="1.5"/>
-<text x="540" y="208" font-size="17"><tspan fill="#2a9d63" font-weight="700">NO 2/3:</tspan><tspan dx="10" fill="#3cff8f">Honestly, not much.</tspan></text>
-<text x="540" y="240" font-size="17" fill="#3cff8f">&gt; noh MOO-choh, lah behr-DAHD</text>
-<text x="928" y="192" font-size="12" fill="#8b949e" text-anchor="end" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">polite no</text>
-<rect x="520" y="280" width="420" height="96" rx="10" fill="#050806" stroke="#2a9d63" stroke-width="1.5"/>
-<text x="540" y="316" font-size="17"><tspan fill="#2a9d63" font-weight="700">QUESTION 3/3:</tspan><tspan dx="10" fill="#3cff8f">And where are you from?</tspan></text>
-<text x="540" y="348" font-size="17" fill="#3cff8f">&gt; ee TOO, deh DOHN-deh EH-res</text>
-<text x="928" y="300" font-size="12" fill="#8b949e" text-anchor="end" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">follow-up question</text>
-<text x="520" y="404" fill="#8b949e" font-size="14" text-anchor="start" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">Tap right / left to switch • top: meaning • below: how to say it</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="330" viewBox="0 0 1080 330" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">
+<rect width="1080" height="330" rx="16" fill="#0b0f0d"/>
+<text x="30" y="44" fill="#8b949e" font-size="13" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">1 · WHILE THEY SPEAK</text>
+<rect x="30" y="60" width="320" height="170" rx="10" fill="#050806" stroke="#2a9d63" stroke-width="1.5"/>
+<text x="46" y="94" fill="#2a9d63" font-size="15" font-weight="700">[SPANISH]</text>
+<text x="46" y="122" fill="#3cff8f" font-size="15">Hi, where are you from?</text>
+<text x="46" y="150" fill="#3cff8f" font-size="15">Do you like Paraguay?</text>
+<text x="30" y="258" fill="#8b949e" font-size="13" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">Live translation, language</text>
+<text x="30" y="278" fill="#8b949e" font-size="13" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">shown on the first sentence.</text>
+<path d="M356 145 H372" stroke="#2a9d63" stroke-width="2.5"/><path d="M372 138 L382 145 L372 152 Z" fill="#2a9d63"/>
+<text x="380" y="44" fill="#8b949e" font-size="13" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">2 · WHEN THEY FINISH</text>
+<rect x="380" y="60" width="320" height="170" rx="10" fill="#050806" stroke="#3cff8f" stroke-width="2"/>
+<text x="396" y="94" font-size="15"><tspan fill="#3cff8f">+ I'm Czech:</tspan><tspan dx="8" fill="#2a9d63">soy CHEH-koh</tspan></text>
+<text x="396" y="122" font-size="15"><tspan fill="#3cff8f">- Not really:</tspan><tspan dx="8" fill="#2a9d63">noh MOO-choh</tspan></text>
+<text x="396" y="150" font-size="15"><tspan fill="#3cff8f">? And you?:</tspan><tspan dx="8" fill="#2a9d63">ee too</tspan></text>
+<text x="380" y="258" fill="#8b949e" font-size="13" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">All three replies at once –</text>
+<text x="380" y="278" fill="#8b949e" font-size="13" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">meaning, then how to say it.</text>
+<path d="M706 145 H722" stroke="#2a9d63" stroke-width="2.5"/><path d="M722 138 L732 145 L722 152 Z" fill="#2a9d63"/>
+<text x="730" y="44" fill="#8b949e" font-size="13" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">3 · AFTER YOU ANSWER</text>
+<rect x="730" y="60" width="320" height="170" rx="10" fill="#050806" stroke="#2a9d63" stroke-width="1.5"/>
+<text x="746" y="94" fill="#2a9d63" font-size="15" font-weight="700">ASK:</text>
+<text x="746" y="122" font-size="15"><tspan fill="#3cff8f">? And you?:</tspan><tspan dx="8" fill="#2a9d63">ee too</tspan></text>
+<text x="746" y="150" font-size="15"><tspan fill="#3cff8f">? Live here?:</tspan><tspan dx="8" fill="#2a9d63">BEE-vess ah-KEE</tspan></text>
+<text x="746" y="178" font-size="15"><tspan fill="#3cff8f">? Like it?:</tspan><tspan dx="8" fill="#2a9d63">teh GOOS-tah</tspan></text>
+<text x="730" y="258" fill="#8b949e" font-size="13" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">Questions to ask back appear</text>
+<text x="730" y="278" fill="#8b949e" font-size="13" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">as soon as you've answered.</text>
+<text x="30" y="314" fill="#8b949e" font-size="13" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">Completely hands-free – no tapping needed. The TouchBar is optional.</text>
 </svg>

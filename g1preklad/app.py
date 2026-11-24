@@ -1,5 +1,6 @@
 """Hlavní logika: poslouchá, cizí řeč překládá do češtiny, po domluvení nabídne odpovědi.
 
+Everything runs hands-free; the TouchBar is optional.
 Ovládání na brýlích:
   ťuk P / L      – další / předchozí návrh odpovědi (když jsou zobrazené)
   dvojťuk        – zavřít návrhy / nový rozhovor (zapomene jazyk)
@@ -52,6 +53,9 @@ class Translator:
         self.show_spelling = bool(c.get("show_spelling", False))
         self.prefetch = bool(c.get("prefetch_replies", True))
         self.followups_enabled = bool(c.get("follow_up_questions", True))
+        self.reply_layout = c.get("reply_layout", "all")        # "all" = all at once, "one" = one per screen
+        self.auto_cycle_s = float(c.get("auto_cycle_s", 3.5))   # layout "one": rotate automatically (0 = off)
+        self._cycle: asyncio.Task | None = None
         self.mode = "reply"                      # "reply" = answers, "ask" = questions to ask
         self._fu: asyncio.Task | None = None
         self._pre: tuple[str, asyncio.Task] | None = None
@@ -224,20 +228,62 @@ class Translator:
             self.replies, self.mode = [], "reply"
             await self.g.show(f"{self.L.t('you_said')}: {said.meaning or said.text}\n{self.L.t('listening')}")
 
-    async def show_reply(self) -> None:
+    async def show_reply(self, restart_cycle: bool = True) -> None:
         if not self.replies:
             await self.g.show(self.L.t("no_replies"))
             return
         self.showing_replies = True
+        if self.reply_layout == "all":
+            await self.g.show(self.render_all())
+            return
+        if restart_cycle:
+            self._start_cycle()
         r = self.replies[self.reply_idx]
         label = self.L.t("ask") if self.mode == "ask" else self.L.label(r.kind)
-        # nahoře česky, pod tím odpověď v jazyce mluvčího a výslovnost
         head = f"{label} {self.reply_idx + 1}/{len(self.replies)}"
         lines = [f"{head}: {r.meaning}" if r.meaning else head]
         lines.append(f"> {r.pron}" if r.pron else f"> {r.text}")
         if self.show_spelling and r.pron:
             lines.append(f"({r.text})")
         await self.g.show("\n".join(lines))
+
+    PREFIX = {"yes": "+", "no": "-", "question": "?", "ask": "?"}
+
+    def render_all(self) -> str:
+        """All suggestions on one screen: '<sign> meaning: pronunciation' per line.
+
+        The G1 shows 5 lines; if the wrapped text would not fit, drop the header,
+        then the meanings, so everything stays on one screen (no tapping needed)."""
+        def build(header: bool, meaning: bool) -> list[str]:
+            lines = [f"{self.L.t('ask')}:"] if header and self.mode == "ask" else []
+            for r in self.replies:
+                sign = self.PREFIX.get("ask" if self.mode == "ask" else r.kind, "*")
+                say = r.pron or r.text
+                lines.append(f"{sign} {r.meaning}: {say}" if meaning and r.meaning else f"{sign} {say}")
+            return lines
+
+        for header, meaning in ((True, True), (False, True), (False, False)):
+            text = "\n".join(build(header, meaning))
+            if len(P.wrap(text, self.g.chars_per_line)) <= P.LINES_PER_SCREEN:
+                return text
+        return text
+
+    def _start_cycle(self) -> None:
+        """Hands-free: rotate through the suggestions automatically."""
+        if self._cycle is not None and not self._cycle.done():
+            self._cycle.cancel()
+        if self.auto_cycle_s > 0 and len(self.replies) > 1:
+            self._cycle = asyncio.create_task(self._cycle_loop(self.replies))
+
+    async def _cycle_loop(self, replies: list) -> None:
+        while True:
+            await asyncio.sleep(self.auto_cycle_s)
+            if not self.showing_replies or self.replies is not replies:
+                return
+            if self.seg.speaking:
+                continue        # someone is talking (probably reading a reply) → hold still
+            self.reply_idx = (self.reply_idx + 1) % len(replies)
+            await self.show_reply(restart_cycle=False)
 
     def new_conversation(self) -> None:
         if self._pre is not None and not self._pre[1].done():
@@ -254,7 +300,8 @@ class Translator:
             self.paused = not self.paused
             self.seg.reset()
             await self.g.show(self.L.t("paused") if self.paused else self.L.t("listening"))
-        elif e == P.Event.SINGLE_TAP and self.showing_replies and self.replies:
+        elif (e == P.Event.SINGLE_TAP and self.showing_replies and self.replies
+              and self.reply_layout == "one"):
             step = 1 if ev.side == "R" else -1
             self.reply_idx = (self.reply_idx + step) % len(self.replies)
             await self.show_reply()
@@ -284,6 +331,8 @@ class Translator:
 
     async def stop(self) -> None:
         self._cancel_turn_timer()
+        if self._cycle is not None:
+            self._cycle.cancel()
         for t in self._tasks:
             t.cancel()
         await self.source.stop()

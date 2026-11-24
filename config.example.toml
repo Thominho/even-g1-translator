@@ -8,6 +8,8 @@ native_language = "en"            # YOUR language: translate into it, never tran
 replies = true                     # offer 3 reply suggestions when the speaker finishes
 prefetch_replies = true            # prepare replies in the background after every sentence → shown instantly
 follow_up_questions = true         # after you read a reply aloud, suggest questions to ask back
+reply_layout = "all"               # "all" = every suggestion on one screen (hands-free), "one" = one per screen
+auto_cycle_s = 3.5                 # layout "one": rotate suggestions automatically every N s (0 = tap only)
 show_spelling = false              # also show how the reply is written (below the pronunciation)
 turn_end_s = 1.5                   # seconds of silence = speaker finished
 sentence_pause_s = 0.7             # pause between sentences – lower = faster subtitles

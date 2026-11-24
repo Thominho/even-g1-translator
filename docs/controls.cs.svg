@@ -1,33 +1,27 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="980" height="430" viewBox="0 0 980 430" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">
-<rect width="980" height="430" rx="16" fill="#0b0f0d"/>
-<text x="40" y="44" fill="#8b949e" font-size="14" text-anchor="start" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">OVLÁDÁNÍ TOUCHBAREM</text>
-<text x="210" y="78" fill="#2a9d63" font-size="12" text-anchor="middle" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">LEVÁ STRANICE</text>
-<text x="450" y="78" fill="#2a9d63" font-size="12" text-anchor="middle" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">PRAVÁ STRANICE</text>
-<rect x="40" y="92" width="900" height="52" rx="10" fill="#050806" stroke="#2a9d63" stroke-width="1.5"/>
-<text x="210" y="123" fill="#2a9d63" font-size="14" text-anchor="middle">·</text>
-<rect x="360" y="104" width="180" height="28" rx="14" fill="none" stroke="#3cff8f" stroke-width="1.5"/>
-<text x="450" y="123" fill="#3cff8f" font-size="14" text-anchor="middle">ťuk</text>
-<text x="580" y="124" fill="#3cff8f" font-size="15">další návrh odpovědi</text>
-<rect x="40" y="156" width="900" height="52" rx="10" fill="#050806" stroke="#2a9d63" stroke-width="1.5"/>
-<rect x="120" y="168" width="180" height="28" rx="14" fill="none" stroke="#3cff8f" stroke-width="1.5"/>
-<text x="210" y="187" fill="#3cff8f" font-size="14" text-anchor="middle">ťuk</text>
-<text x="450" y="187" fill="#2a9d63" font-size="14" text-anchor="middle">·</text>
-<text x="580" y="188" fill="#3cff8f" font-size="15">předchozí návrh · zobrazit originál</text>
-<rect x="40" y="220" width="900" height="52" rx="10" fill="#050806" stroke="#2a9d63" stroke-width="1.5"/>
-<rect x="120" y="232" width="180" height="28" rx="14" fill="none" stroke="#3cff8f" stroke-width="1.5"/>
-<text x="210" y="251" fill="#3cff8f" font-size="14" text-anchor="middle">dvojťuk</text>
-<rect x="360" y="232" width="180" height="28" rx="14" fill="none" stroke="#3cff8f" stroke-width="1.5"/>
-<text x="450" y="251" fill="#3cff8f" font-size="14" text-anchor="middle">dvojťuk</text>
-<text x="580" y="252" fill="#3cff8f" font-size="15">zavřít návrhy · podruhé: nový rozhovor</text>
-<rect x="40" y="284" width="900" height="52" rx="10" fill="#050806" stroke="#2a9d63" stroke-width="1.5"/>
-<text x="210" y="315" fill="#2a9d63" font-size="14" text-anchor="middle">·</text>
-<rect x="360" y="296" width="180" height="28" rx="14" fill="none" stroke="#3cff8f" stroke-width="1.5"/>
-<text x="450" y="315" fill="#3cff8f" font-size="14" text-anchor="middle">podržet</text>
-<text x="580" y="316" fill="#3cff8f" font-size="15">znovu ukázat návrhy (nebo zvednout hlavu)</text>
-<rect x="40" y="348" width="900" height="52" rx="10" fill="#050806" stroke="#2a9d63" stroke-width="1.5"/>
-<rect x="120" y="360" width="180" height="28" rx="14" fill="none" stroke="#3cff8f" stroke-width="1.5"/>
-<text x="210" y="379" fill="#3cff8f" font-size="14" text-anchor="middle">trojťuk</text>
-<rect x="360" y="360" width="180" height="28" rx="14" fill="none" stroke="#3cff8f" stroke-width="1.5"/>
-<text x="450" y="379" fill="#3cff8f" font-size="14" text-anchor="middle">trojťuk</text>
-<text x="580" y="380" fill="#3cff8f" font-size="15">pauza / pokračovat</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="980" height="386" viewBox="0 0 980 386" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">
+<rect width="980" height="386" rx="16" fill="#0b0f0d"/>
+<text x="40" y="44" fill="#8b949e" font-size="14" text-anchor="start" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">TOUCHBAR (VOLITELNĚ)</text>
+<text x="40" y="66" fill="#8b949e" font-size="13" text-anchor="start" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">Vše funguje bez rukou. Gesta jsou jen pro případ, že chcete něco ovlivnit.</text>
+<text x="210" y="98" fill="#2a9d63" font-size="12" text-anchor="middle" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">LEVÁ STRANICE</text>
+<text x="450" y="98" fill="#2a9d63" font-size="12" text-anchor="middle" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">PRAVÁ STRANICE</text>
+<rect x="40" y="112" width="900" height="52" rx="10" fill="#050806" stroke="#2a9d63" stroke-width="1.5"/>
+<rect x="120" y="124" width="180" height="28" rx="14" fill="none" stroke="#3cff8f" stroke-width="1.5"/>
+<text x="210" y="143" fill="#3cff8f" font-size="14" text-anchor="middle">dvojťuk</text>
+<rect x="360" y="124" width="180" height="28" rx="14" fill="none" stroke="#3cff8f" stroke-width="1.5"/>
+<text x="450" y="143" fill="#3cff8f" font-size="14" text-anchor="middle">dvojťuk</text>
+<text x="580" y="144" fill="#3cff8f" font-size="15">skrýt návrhy · podruhé: nový rozhovor</text>
+<rect x="40" y="176" width="900" height="52" rx="10" fill="#050806" stroke="#2a9d63" stroke-width="1.5"/>
+<rect x="360" y="188" width="180" height="28" rx="14" fill="none" stroke="#3cff8f" stroke-width="1.5"/>
+<text x="450" y="207" fill="#3cff8f" font-size="14" text-anchor="middle">podržet</text>
+<text x="580" y="208" fill="#3cff8f" font-size="15">znovu ukázat návrhy (nebo zvednout hlavu)</text>
+<rect x="40" y="240" width="900" height="52" rx="10" fill="#050806" stroke="#2a9d63" stroke-width="1.5"/>
+<rect x="120" y="252" width="180" height="28" rx="14" fill="none" stroke="#3cff8f" stroke-width="1.5"/>
+<text x="210" y="271" fill="#3cff8f" font-size="14" text-anchor="middle">ťuk</text>
+<text x="580" y="272" fill="#3cff8f" font-size="15">zobrazit originál nad překladem</text>
+<rect x="40" y="304" width="900" height="52" rx="10" fill="#050806" stroke="#2a9d63" stroke-width="1.5"/>
+<rect x="120" y="316" width="180" height="28" rx="14" fill="none" stroke="#3cff8f" stroke-width="1.5"/>
+<text x="210" y="335" fill="#3cff8f" font-size="14" text-anchor="middle">trojťuk</text>
+<rect x="360" y="316" width="180" height="28" rx="14" fill="none" stroke="#3cff8f" stroke-width="1.5"/>
+<text x="450" y="335" fill="#3cff8f" font-size="14" text-anchor="middle">trojťuk</text>
+<text x="580" y="336" fill="#3cff8f" font-size="15">pauza / pokračovat</text>
 </svg>

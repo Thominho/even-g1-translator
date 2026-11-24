@@ -47,7 +47,8 @@ with a pronunciation guide so you can simply read them out loud.
 - 🌍 **Automatic language detection** – works with ~100 languages and switches on the fly when a different person speaks another language.
 - 💬 **Live translation** sentence by sentence, using the conversation so far as context.
 - 🏷️ **Language label** on the first sentence, so you always know what you're hearing.
-- ✅ **Three reply suggestions** when the speaker finishes: *yes / agree*, *polite no*, and a *follow-up question* (or "could you repeat that more slowly?" when the speech was unclear).
+- 🙌 **Completely hands-free** – no tapping, no buttons. Everything appears on its own; the TouchBar is optional.
+- ✅ **All three reply suggestions on one screen** when the speaker finishes: *yes / agree*, *polite no*, and a *follow-up question* (or "could you repeat that more slowly?" when the speech was unclear).
 - 🗣️ **Pronunciation guide** written for your native language – no need to know how the foreign words are spelled.
 - 🔁 **Keeps the conversation going** – once you read a reply aloud, the glasses suggest questions to ask next: the same question back (*"And you?"*) plus two sensible follow-ups.
 - ⚡ **Instant replies** – suggestions are prepared in the background after every sentence, so they appear the moment the speaker stops (≈ 1.5–2 s after the last word).
@@ -124,6 +125,7 @@ All settings live in `config.toml` (see [`config.example.toml`](config.example.t
 | `translator.replies` | `true` | Offer reply suggestions |
 | `translator.prefetch_replies` | `true` | Prepare replies in the background for instant display |
 | `translator.follow_up_questions` | `true` | After your answer, suggest questions to ask back |
+| `translator.reply_layout` | `all` | `all` = every suggestion on one screen, `one` = one per screen, rotating automatically |
 | `translator.turn_end_s` | `1.5` | Silence (s) that ends the speaker's turn |
 | `translator.sentence_pause_s` | `0.7` | Pause between sentences – lower means faster subtitles |
 | `translator.show_spelling` | `false` | Show the written reply below the pronunciation |
@@ -186,6 +188,7 @@ Missing your language in the UI? Adding it is a few lines in
 | Lines wrap oddly | Adjust `glasses.chars_per_line` |
 | Subtitles lag | Lower `sentence_pause_s`, use a smaller Whisper model |
 | Suggestions appear too early / late | Adjust `turn_end_s` |
+| Suggestions too long for one screen | Tune `glasses.chars_per_line`, or use `reply_layout = "one"` |
 | Background noise gets translated | Raise `audio.threshold` |
 | Connection drops | Lower `glasses.heartbeat_s` |
 

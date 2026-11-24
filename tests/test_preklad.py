@@ -7,6 +7,7 @@ from g1preklad.ai import Heard, Interpreter, parse_replies
 from g1preklad.app import Translator, similar
 from g1preklad.audio import AudioSource
 from g1preklad.glasses import SimGlasses
+from g1preklad import protocol as P
 
 
 def loud(ms=100):
@@ -73,7 +74,8 @@ def make(cfg=None, items=()):
     g = SimGlasses(interactive=False, out=io.StringIO())
     src = FakeSource()
     llm = FakeLLM()
-    cfg = cfg or {"translator": {"turn_end_s": 0.15, "native_language": "cs"}}
+    cfg = cfg or {"translator": {"turn_end_s": 0.15, "native_language": "cs", "auto_cycle_s": 0,
+                                  "reply_layout": "one"}}
     t = Translator(g, FakeSTT(items), Interpreter(llm, "cs"), cfg, source=src)
     return t, g, src, llm
 
@@ -173,7 +175,7 @@ async def test_double_tap_new_conversation_and_pause():
 
 
 async def test_no_replies_when_disabled():
-    t, g, src, llm = make({"translator": {"turn_end_s": 0.1, "replies": False}},
+    t, g, src, llm = make({"translator": {"turn_end_s": 0.1, "replies": False, "native_language": "cs"}},
                           items=[("¿Te gusta Paraguay?", "es", 0.95)])
     await t.start()
     await speak(src, 1)
@@ -201,7 +203,8 @@ async def _time_to_replies(prefetch):
     src = FakeSource()
     llm = SlowLLM()
     t = Translator(g, FakeSTT([("¿Te gusta Paraguay?", "es", 0.95)]), Interpreter(llm),
-                   {"translator": {"turn_end_s": 0.3, "prefetch_replies": prefetch, "native_language": "cs"}}, source=src)
+                   {"translator": {"turn_end_s": 0.3, "prefetch_replies": prefetch, "native_language": "cs",
+                                   "reply_layout": "one"}}, source=src)
     await t.start()
     await speak(src, 1, gap_ms=900)
     await asyncio.sleep(1.0)
@@ -244,10 +247,12 @@ async def test_english_native_language():
     await speak(src, 1)
     await asyncio.sleep(0.4)
     assert "[SPANISH]\nDo you like Paraguay?" in "\n".join(g.screens)
-    assert g.screens[-1] == "YES 1/3: Yes, I really like it.\n> see, meh GOOS-tah MOO-choh"
+    expected = ("+ Yes, I really like it.: see, meh GOOS-tah MOO-choh\n"
+                "- Not much.: noh MOO-choh\n? And you?: ee ah TEE")
+    assert g.screens[-1] == "\n".join(P.wrap(expected, g.chars_per_line))
     assert "native English speaker" in llm.calls[-1][0]
     await speak(src, 1)                          # angličtina se nepřekládá
-    assert g.screens[-1].startswith("YES 1/3")
+    assert g.screens[-1].startswith("+ Yes, I really like it.")
     await t.stop()
 
 
@@ -268,4 +273,43 @@ async def test_followup_question_read_aloud_and_no_followups_fallback():
     await speak(src, 1)                  # přečetl NE – pro něj LLM otázky nemá → "Řekl jsi"
     assert g.screens[-1].startswith("Řekl jsi: Moc ne.")
     assert t.replies == [] and t.mode == "reply"
+    await t.stop()
+
+
+async def test_hands_free_auto_cycle():
+    t, g, src, llm = make({"translator": {"turn_end_s": 0.1, "native_language": "cs",
+                                          "auto_cycle_s": 0.12, "reply_layout": "one"}},
+                          items=[("¿Te gusta Paraguay?", "es", 0.95)])
+    await t.start()
+    await speak(src, 1)
+    await asyncio.sleep(0.7)
+    heads = [x.split(":")[0] for x in g.screens if "/3" in x]
+    assert heads[:4] == ["ANO 1/3", "NE 2/3", "OTÁZKA 3/3", "ANO 1/3"]   # samo, bez ťukání
+    for _ in range(3):                                 # někdo mluví → střídání se zastaví
+        await src.q.put(loud())
+    await asyncio.sleep(0.05)
+    n = len(g.screens)
+    await asyncio.sleep(0.3)
+    assert len(g.screens) == n
+    await t.stop()
+
+
+async def test_all_replies_at_once_default():
+    t, g, src, llm = make({"translator": {"turn_end_s": 0.1, "native_language": "cs"}},
+                          items=[("¿Te gusta Paraguay?", "es", 0.95),
+                                 ("Si me gusta mucho", "es", 0.9)])
+    assert t.reply_layout == "all"
+    await t.start()
+    await speak(src, 1)
+    await asyncio.sleep(0.3)
+    assert g.screens[-1] == ("+ Ano, moc.: sí, me gusta mučo\n"
+                             "- Moc ne.: no mučo, la verdad\n"
+                             "? A tobě?: i a ti")
+    n = len(g.screens)
+    await asyncio.sleep(0.3)
+    assert len(g.screens) == n                         # nic neskáče
+    await speak(src, 1)                                # přečetl ANO → otázky, taky všechny najednou
+    scr = g.screens[-1]
+    assert len(P.wrap(scr, g.chars_per_line)) <= 5     # vše se vejde na jednu obrazovku
+    assert scr.count("? ") == 3 and "i a ti te gusta praga" in scr
     await t.stop()

@@ -41,7 +41,8 @@ mluví, a jakmile domluví, nabídnou **tři odpovědi v jeho jazyce** – naho�
 - 🌍 **Automatické rozpoznání jazyka** – zhruba 100 jazyků, přepne se samo, když začne mluvit někdo jiný jinou řečí.
 - 💬 **Živý překlad** po větách, s ohledem na předchozí průběh rozhovoru.
 - 🏷️ **Název jazyka** u první věty.
-- ✅ **Tři návrhy odpovědí**, když mluvčí domluví: *ano / souhlas*, *zdvořilé ne* a *doplňující otázka* (nebo „zopakujte to prosím pomaleji“, když řeč nebyla srozumitelná).
+- 🙌 **Úplně bez rukou** – nic se neťuká, vše naskočí samo. TouchBar je jen volitelný.
+- ✅ **Všechny tři návrhy odpovědí na jedné obrazovce**, když mluvčí domluví: *ano / souhlas*, *zdvořilé ne* a *doplňující otázka* (nebo „zopakujte to prosím pomaleji“, když řeč nebyla srozumitelná).
 - 🗣️ **Výslovnost zapsaná česky** – nemusíte vědět, jak se cizí slova píšou.
 - 🔁 **Rozhovor nevázne** – jakmile nahlas přečtete odpověď, brýle nabídnou, na co se zeptat vy: stejnou otázku zpátky („A ty?“) a dvě další rozumné otázky.
 - ⚡ **Okamžité odpovědi** – návrhy se připravují na pozadí už po každé větě, takže naskočí hned, jak mluvčí přestane (≈ 1,5–2 s po posledním slově).
@@ -117,6 +118,7 @@ Vše je v `config.toml` (viz [`config.example.toml`](config.example.toml)).
 | `translator.replies` | `true` | Nabízet návrhy odpovědí |
 | `translator.prefetch_replies` | `true` | Připravovat odpovědi na pozadí pro okamžité zobrazení |
 | `translator.follow_up_questions` | `true` | Po vaší odpovědi nabídnout otázky, na co se zeptat |
+| `translator.reply_layout` | `all` | `all` = všechny návrhy na jedné obrazovce, `one` = po jednom, střídají se samy |
 | `translator.turn_end_s` | `1.5` | Ticho (s), po kterém mluvčí „domluvil“ |
 | `translator.sentence_pause_s` | `0.7` | Pauza mezi větami – menší = rychlejší titulky |
 | `translator.show_spelling` | `false` | Pod výslovností i psaná podoba odpovědi |
