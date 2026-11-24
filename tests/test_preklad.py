@@ -64,8 +64,8 @@ def make(cfg=None, items=()):
     g = SimGlasses(interactive=False, out=io.StringIO())
     src = FakeSource()
     llm = FakeLLM()
-    cfg = cfg or {"translator": {"turn_end_s": 0.15}}
-    t = Translator(g, FakeSTT(items), Interpreter(llm), cfg, source=src)
+    cfg = cfg or {"translator": {"turn_end_s": 0.15, "native_language": "cs"}}
+    t = Translator(g, FakeSTT(items), Interpreter(llm, "cs"), cfg, source=src)
     return t, g, src, llm
 
 
@@ -80,7 +80,8 @@ async def speak(src, sentences=1, gap_ms=1000):
 
 def test_parse_replies_with_noise():
     rs = parse_replies("blabla " + REPLIES + " konec")
-    assert [r.kind for r in rs] == ["ano", "ne", "otazka"]
+    assert [r.kind for r in rs] == ["yes", "no", "question"]
+    assert rs[0].meaning == "Ano, moc."
     assert rs[0].pron == "sí, me gusta mučo"
     assert parse_replies("nic") == []
 
@@ -109,7 +110,7 @@ async def test_full_flow_spanish():
     await g.press("a")
     assert g.screens[-1].startswith("NE 2/3")
     # kontext rozhovoru šel do LLM
-    assert "španělština" in llm.calls[-1][0]
+    assert "Spanish" in llm.calls[-1][0] and "native Czech" in llm.calls[-1][0]
     await t.stop()
 
 
@@ -187,7 +188,7 @@ async def _time_to_replies(prefetch):
     src = FakeSource()
     llm = SlowLLM()
     t = Translator(g, FakeSTT([("¿Te gusta Paraguay?", "es", 0.95)]), Interpreter(llm),
-                   {"translator": {"turn_end_s": 0.3, "prefetch_replies": prefetch}}, source=src)
+                   {"translator": {"turn_end_s": 0.3, "prefetch_replies": prefetch, "native_language": "cs"}}, source=src)
     await t.start()
     await speak(src, 1, gap_ms=900)
     await asyncio.sleep(1.0)
@@ -204,3 +205,42 @@ async def test_prefetch_makes_replies_faster():
     assert slow >= 0.65          # 0.3 s ticho + 0.4 s generování
     assert fast < 0.45           # odpovědi hotové už během ticha
     assert calls == 1            # nic se negeneruje dvakrát
+
+
+EN_REPLIES = json.dumps({"replies": [
+    {"kind": "yes", "text": "Sí, me gusta mucho.", "pron": "see, meh GOOS-tah MOO-choh", "meaning": "Yes, I really like it."},
+    {"kind": "no", "text": "No mucho.", "pron": "noh MOO-choh", "meaning": "Not much."},
+    {"kind": "question", "text": "¿Y a ti?", "pron": "ee ah TEE", "meaning": "And you?"}]})
+
+
+class EnLLM(FakeLLM):
+    async def chat(self, system, user, max_tokens=400):
+        self.calls.append((system, user))
+        return EN_REPLIES if "JSON" in system else "Do you like Paraguay?"
+
+
+async def test_english_native_language():
+    g = SimGlasses(interactive=False, out=io.StringIO())
+    src = FakeSource()
+    llm = EnLLM()
+    t = Translator(g, FakeSTT([("¿Te gusta Paraguay?", "es", 0.95), ("I like it", "en", 0.99)]),
+                   Interpreter(llm, "en"), {"translator": {"turn_end_s": 0.15}}, source=src)
+    assert "en" in t.ignore                      # výchozí rodný jazyk = angličtina
+    await t.start()
+    assert g.screens[0].startswith("Translator → English")
+    await speak(src, 1)
+    await asyncio.sleep(0.4)
+    assert "[SPANISH]\nDo you like Paraguay?" in "\n".join(g.screens)
+    assert g.screens[-1] == "YES 1/3: Yes, I really like it.\n> see, meh GOOS-tah MOO-choh"
+    assert "native English speaker" in llm.calls[-1][0]
+    await speak(src, 1)                          # angličtina se nepřekládá
+    assert g.screens[-1].startswith("YES 1/3")
+    await t.stop()
+
+
+def test_ui_fallback_and_endonyms():
+    from g1preklad.i18n import Lang
+    assert Lang("de").label("question") == "FRAGE"
+    assert Lang("de").name("es") == "Español"
+    assert Lang("ja").t("listening") == "Listening…"   # neznámý UI jazyk → angličtina
+    assert Lang("cs").name("es") == "španělština"

@@ -3,6 +3,8 @@
 #   export ANTHROPIC_API_KEY="..."   or   export OPENAI_API_KEY="..."
 
 [translator]
+native_language = "en"            # YOUR language: translate into it, never translate it, pronunciation spelled for it
+                                   # UI labels: en, cs, sk, de, es, fr, it, pt, pl, nl (others fall back to English)
 replies = true                     # offer 3 reply suggestions when the speaker finishes
 prefetch_replies = true            # prepare replies in the background after every sentence → shown instantly
 show_spelling = false              # also show how the reply is written (below the pronunciation)
@@ -10,7 +12,7 @@ turn_end_s = 1.5                   # seconds of silence = speaker finished
 sentence_pause_s = 0.7             # pause between sentences – lower = faster subtitles
 new_conversation_after_s = 90      # after this much silence, forget language and context
 show_original = false              # original text above the translation (tap left toggles)
-ignore_languages = ["cs"]          # languages that are never translated (e.g. add "sk")
+ignore_languages = []              # extra languages you understand and never want translated, e.g. ["de"]
 min_language_probability = 0.6     # uncertain detection on short sentences keeps the conversation language
 
 [stt]                              # speech-to-text

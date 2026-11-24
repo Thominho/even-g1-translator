@@ -13,21 +13,10 @@ import wave
 from dataclasses import dataclass
 
 from .audio import SAMPLE_RATE
+from .i18n import KIND_ALIASES, english_name
 
 log = logging.getLogger("g1preklad.ai")
 
-# Názvy jazyků česky (kód podle Whisperu)
-LANGS = {
-    "en": "angličtina", "es": "španělština", "de": "němčina", "fr": "francouzština",
-    "it": "italština", "pt": "portugalština", "pl": "polština", "sk": "slovenština",
-    "ru": "ruština", "uk": "ukrajinština", "nl": "nizozemština", "hu": "maďarština",
-    "ro": "rumunština", "hr": "chorvatština", "sl": "slovinština", "sr": "srbština",
-    "bg": "bulharština", "el": "řečtina", "tr": "turečtina", "sv": "švédština",
-    "da": "dánština", "no": "norština", "nn": "norština", "fi": "finština", "ja": "japonština",
-    "zh": "čínština", "ko": "korejština", "ar": "arabština", "he": "hebrejština",
-    "hi": "hindština", "vi": "vietnamština", "th": "thajština", "id": "indonéština",
-    "gn": "guaraní", "cs": "čeština",
-}
 # OpenAI verbose_json vrací anglický název jazyka
 _EN_NAMES = {"english": "en", "spanish": "es", "german": "de", "french": "fr", "italian": "it",
              "portuguese": "pt", "polish": "pl", "slovak": "sk", "russian": "ru",
@@ -35,10 +24,6 @@ _EN_NAMES = {"english": "en", "spanish": "es", "german": "de", "french": "fr", "
              "romanian": "ro", "croatian": "hr", "greek": "el", "turkish": "tr",
              "swedish": "sv", "japanese": "ja", "chinese": "zh", "korean": "ko",
              "arabic": "ar", "danish": "da", "norwegian": "no", "finnish": "fi"}
-
-
-def lang_name(code: str | None) -> str:
-    return LANGS.get(code or "", (code or "?").upper())
 
 
 @dataclass
@@ -197,33 +182,33 @@ def make_llm(cfg: dict):
     raise SystemExit(f"Neznámý LLM backend: {kind}")
 
 
-# ========================================================== překlad a odpovědi
+# ============================================================ translation & replies
 
 @dataclass
 class Reply:
-    kind: str     # "ano" | "ne" | "otazka"
-    text: str     # v cizím jazyce
-    pron: str     # česká výslovnost
-    cs: str       # význam česky
+    kind: str      # "yes" | "no" | "question"
+    text: str      # in the speaker's language
+    pron: str      # pronunciation written with the native language's spelling
+    meaning: str   # meaning in the native language
 
-
-KIND_LABEL = {"ano": "ANO", "ne": "NE", "otazka": "OTÁZKA"}
 
 TRANSLATE_SYS = (
-    "Překládáš živou řeč do češtiny pro titulky v brýlích. Vrať JEN český překlad, přirozeně a "
-    "stručně, bez uvozovek a komentářů. Když je přepis zkomolený, přelož nejpravděpodobnější smysl.")
+    "You translate live speech into {native} for subtitles in smart glasses. Return ONLY the "
+    "{native} translation – natural, concise, no quotes, no comments. If the transcript is "
+    "garbled, translate the most likely meaning.")
 
 REPLY_SYS = (
-    "Uživatel (Tomáš, Čech) nemluví cizím jazykem. Někdo na něj právě mluvil jazykem {lang}. "
-    "Navrhni mu 3 velmi krátké odpovědi V TOMTO JAZYCE ({lang}), které může přečíst nahlas:\n"
-    "1. \"ano\" – kladná / souhlas / poděkování (podle situace),\n"
-    "2. \"ne\" – záporná / zdvořilé odmítnutí,\n"
-    "3. \"otazka\" – doplňující otázka k tématu, NEBO prosba o zopakování pomaleji, pokud řeč "
-    "nedává smysl.\n"
-    "Každá odpověď max 8 slov, jednoduchá slovní zásoba. Ke každé přidej výslovnost zapsanou "
-    "českým pravopisem (jak to Čech přečte) a český význam.\n"
-    "Vrať POUZE JSON: {{\"replies\": [{{\"kind\": \"ano\", \"text\": \"...\", \"pron\": \"...\", "
-    "\"cs\": \"...\"}}, ...]}}")
+    "The user is a native {native} speaker who does not speak {lang}. Someone has just spoken to "
+    "them in {lang}. Suggest 3 very short replies IN {lang} that the user can read out loud:\n"
+    "1. \"yes\" – positive / agreement / thanks (whatever fits),\n"
+    "2. \"no\" – negative / polite refusal,\n"
+    "3. \"question\" – a follow-up question on the topic, OR a request to repeat more slowly if "
+    "the speech made no sense.\n"
+    "Each reply max 8 words, simple vocabulary. For each add a pronunciation guide written with "
+    "{native} spelling conventions, so a {native} speaker reading it naturally sounds right, and "
+    "its meaning in {native}.\n"
+    "Return ONLY JSON: {{\"replies\": [{{\"kind\": \"yes\", \"text\": \"...\", \"pron\": \"...\", "
+    "\"meaning\": \"...\"}}, ...]}}")
 
 
 def parse_replies(raw: str) -> list[Reply]:
@@ -237,26 +222,29 @@ def parse_replies(raw: str) -> list[Reply]:
     out = []
     for r in data.get("replies", [])[:3]:
         if isinstance(r, dict) and r.get("text"):
-            out.append(Reply(str(r.get("kind", "")).lower().replace("á", "a"), str(r["text"]).strip(),
-                             str(r.get("pron", "")).strip(), str(r.get("cs", "")).strip()))
+            kind = KIND_ALIASES.get(str(r.get("kind", "")).lower(), str(r.get("kind", "")).lower())
+            out.append(Reply(kind, str(r["text"]).strip(), str(r.get("pron", "")).strip(),
+                             str(r.get("meaning", r.get("cs", ""))).strip()))
     return out
 
 
 class Interpreter:
-    def __init__(self, llm):
+    def __init__(self, llm, native: str = "en"):
         self.llm = llm
+        self.native = english_name(native)
 
     async def translate(self, text: str, lang: str | None, context: list[str]) -> str:
         user = ""
         if context:
-            user += "Předchozí věty (pro kontext, nepřekládej):\n" + "\n".join(context[-4:]) + "\n\n"
-        user += f"Jazyk: {lang_name(lang)}\nPřelož do češtiny:\n{text}"
-        return (await self.llm.chat(TRANSLATE_SYS, user, 300)).strip().strip('"„“')
+            user += "Earlier sentences (context only, do not translate):\n" + "\n".join(context[-4:]) + "\n\n"
+        user += f"Language: {english_name(lang)}\nTranslate into {self.native}:\n{text}"
+        out = await self.llm.chat(TRANSLATE_SYS.format(native=self.native), user, 300)
+        return out.strip().strip('"„“')
 
     async def replies(self, turn: str, lang: str | None, context: list[str]) -> list[Reply]:
         user = ""
         if context:
-            user += "Dřívější průběh rozhovoru:\n" + "\n".join(context[-8:]) + "\n\n"
-        user += f"Právě řekl(a):\n{turn}"
-        raw = await self.llm.chat(REPLY_SYS.format(lang=lang_name(lang)), user, 500)
-        return parse_replies(raw)
+            user += "Conversation so far:\n" + "\n".join(context[-8:]) + "\n\n"
+        user += f"They just said:\n{turn}"
+        sys = REPLY_SYS.format(native=self.native, lang=english_name(lang))
+        return parse_replies(await self.llm.chat(sys, user, 500))

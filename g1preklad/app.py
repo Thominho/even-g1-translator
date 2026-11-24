@@ -21,12 +21,12 @@ import tomllib
 from pathlib import Path
 
 from . import protocol as P
-from .ai import Interpreter, KIND_LABEL, Reply, lang_name, make_llm, make_stt
+from .ai import Interpreter, Reply, make_llm, make_stt
+from .i18n import Lang
 from .audio import Segmenter, make_source
 from .glasses import BleGlasses, SimGlasses
 
 log = logging.getLogger("g1preklad")
-HOME_LANG = "cs"
 
 
 def _norm(s: str) -> str:
@@ -52,7 +52,8 @@ class Translator:
         self.show_spelling = bool(c.get("show_spelling", False))
         self.prefetch = bool(c.get("prefetch_replies", True))
         self._pre: tuple[str, asyncio.Task] | None = None
-        self.ignore = set(c.get("ignore_languages", [HOME_LANG]))
+        self.L = Lang(c.get("native_language", "en"))
+        self.ignore = {self.L.native, *c.get("ignore_languages", [])}
         self.seg = Segmenter(threshold=float(a.get("threshold", 500)),
                              silence_s=float(c.get("sentence_pause_s", 0.7)))
         self.source = source or make_source(a.get("source", "mac"), glasses)
@@ -95,7 +96,7 @@ class Translator:
                 await self.handle_segment(pcm)
             except Exception as e:
                 log.exception("chyba při zpracování")
-                await self.g.show(f"Chyba: {e}")
+                await self.g.show(f"{self.L.t('error')}: {e}")
 
     # --------------------------------------------------------------- logika
     async def handle_segment(self, pcm: bytes) -> None:
@@ -121,7 +122,7 @@ class Translator:
                 self.history.append(f"Já: {best.text}")
                 self.replies = []
                 self.showing_replies = False
-                await self.g.show(f"Řekl jsi: {best.cs or best.text}\nPoslouchám…")
+                await self.g.show(f"{self.L.t('you_said')}: {best.meaning or best.text}\n{self.L.t('listening')}")
                 return
 
         self.last_speech = time.monotonic()
@@ -140,7 +141,7 @@ class Translator:
         self._schedule_turn_end()
 
     def _header(self) -> str:
-        return f"[{lang_name(self.lang).upper()}]"
+        return f"[{self.L.name(self.lang).upper()}]"
 
     async def draw_turn(self, header: bool = False) -> None:
         if self.show_original:
@@ -198,14 +199,14 @@ class Translator:
 
     async def show_reply(self) -> None:
         if not self.replies:
-            await self.g.show("Žádné návrhy.")
+            await self.g.show(self.L.t("no_replies"))
             return
         self.showing_replies = True
         r = self.replies[self.reply_idx]
-        label = KIND_LABEL.get(r.kind, r.kind.upper())
+        label = self.L.label(r.kind)
         # nahoře česky, pod tím odpověď v jazyce mluvčího a výslovnost
         head = f"{label} {self.reply_idx + 1}/{len(self.replies)}"
-        lines = [f"{head}: {r.cs}" if r.cs else head]
+        lines = [f"{head}: {r.meaning}" if r.meaning else head]
         lines.append(f"> {r.pron}" if r.pron else f"> {r.text}")
         if self.show_spelling and r.pron:
             lines.append(f"({r.text})")
@@ -225,23 +226,23 @@ class Translator:
         if e == P.Event.TRIPLE_TAP:
             self.paused = not self.paused
             self.seg.reset()
-            await self.g.show("Pauza" if self.paused else "Poslouchám…")
+            await self.g.show(self.L.t("paused") if self.paused else self.L.t("listening"))
         elif e == P.Event.SINGLE_TAP and self.showing_replies and self.replies:
             step = 1 if ev.side == "R" else -1
             self.reply_idx = (self.reply_idx + step) % len(self.replies)
             await self.show_reply()
         elif e == P.Event.SINGLE_TAP and ev.side == "L":
             self.show_original = not self.show_original
-            await self.g.show("Zobrazuji originál + překlad" if self.show_original else "Jen překlad")
+            await self.g.show(self.L.t("orig_on") if self.show_original else self.L.t("orig_off"))
         elif e == P.Event.SINGLE_TAP and ev.side == "R" and self.turn_cs:
             await self.draw_turn(header=True)
         elif e == P.Event.DOUBLE_TAP:
             if self.showing_replies:
                 self.showing_replies = False
-                await self.g.show("Poslouchám…")
+                await self.g.show(self.L.t("listening"))
             else:
                 self.new_conversation()
-                await self.g.show("Nový rozhovor\nPoslouchám…")
+                await self.g.show(f"{self.L.t('new')}\n{self.L.t('listening')}")
         elif e == P.Event.LONG_PRESS and ev.side == "R" and self.replies:
             await self.show_reply()
         elif e == P.Event.HEAD_UP and self.showing_replies:
@@ -252,7 +253,7 @@ class Translator:
         self.g.on_event(self.on_event)
         await self.source.start()
         self._tasks = [asyncio.create_task(self._pump()), asyncio.create_task(self._worker())]
-        await self.g.show("Překladač → čeština\nPoslouchám…")
+        await self.g.show(f"{self.L.t('start', lang=self.L.name(self.L.native))}\n{self.L.t('listening')}")
 
     async def stop(self) -> None:
         self._cancel_turn_timer()
@@ -283,7 +284,8 @@ async def _run(args) -> None:
     g = SimGlasses(cpl) if args.sim else BleGlasses(cpl, heartbeat_s=float(gc.get("heartbeat_s", 8)),
                                                      channel=gc.get("channel"))
     stt = make_stt(cfg.get("stt", {}))
-    interp = Interpreter(make_llm(cfg.get("llm", {})))
+    native = cfg.get("translator", {}).get("native_language", "en")
+    interp = Interpreter(make_llm(cfg.get("llm", {})), native)
     await g.connect()
     t = Translator(g, stt, interp, cfg)
     await t.start()
@@ -303,18 +305,20 @@ async def _run(args) -> None:
 
 
 async def _demo(args) -> None:
-    """Otestuje LLM bez mikrofonu: přeloží větu a navrhne odpovědi."""
+    """Test the LLM without a microphone: translate a sentence and suggest replies."""
     cfg = load_config(args.config)
-    interp = Interpreter(make_llm(cfg.get("llm", {})))
+    native = cfg.get("translator", {}).get("native_language", "en")
+    L = Lang(native)
+    interp = Interpreter(make_llm(cfg.get("llm", {})), native)
     g = SimGlasses(interactive=False)
-    print("Překlad:", await interp.translate(args.text, args.lang, []))
+    print("Translation:", await interp.translate(args.text, args.lang, []))
     for r in await interp.replies(args.text, args.lang, []):
-        print(f"- {KIND_LABEL.get(r.kind, r.kind)}: {r.text}  [{r.pron}]  = {r.cs}")
+        print(f"- {L.label(r.kind)}: {r.meaning}  > {r.pron}  ({r.text})")
     del g
 
 
 def main(argv: list[str] | None = None) -> None:
-    ap = argparse.ArgumentParser(prog="g1preklad", description="Překladač do češtiny pro Even G1")
+    ap = argparse.ArgumentParser(prog="g1preklad", description="Live translator with reply suggestions for Even Realities G1")
     ap.add_argument("-c", "--config")
     ap.add_argument("-v", "--verbose", action="store_true")
     sub = ap.add_subparsers(dest="cmd")

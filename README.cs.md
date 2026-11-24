@@ -31,6 +31,7 @@ mluví, a jakmile domluví, nabídnou **tři odpovědi v jeho jazyce** – naho�
 - [Použití s brýlemi](#použití-s-brýlemi)
 - [Ovládání](#ovládání)
 - [Nastavení](#nastavení)
+- [Jazyk](#jazyk)
 - [Offline režim a náklady](#offline-režim-a-náklady)
 - [Řešení potíží](#řešení-potíží)
 - [Licence](#licence)
@@ -71,7 +72,7 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install -e .
 pip install mlx-whisper              # Apple Silicon  (Intel: pip install faster-whisper)
 
-cp config.example.toml config.toml   # nastavte [llm] backend a model
+cp config.example.toml config.toml   # nastavte native_language = "cs", [llm] backend a model
 export ANTHROPIC_API_KEY="..."       # nebo OPENAI_API_KEY – trvale do ~/.zshrc
 ```
 
@@ -117,11 +118,24 @@ Vše je v `config.toml` (viz [`config.example.toml`](config.example.toml)).
 | `translator.turn_end_s` | `1.5` | Ticho (s), po kterém mluvčí „domluvil“ |
 | `translator.sentence_pause_s` | `0.7` | Pauza mezi větami – menší = rychlejší titulky |
 | `translator.show_spelling` | `false` | Pod výslovností i psaná podoba odpovědi |
-| `translator.ignore_languages` | `["cs"]` | Jazyky, které se nepřekládají |
+| `translator.native_language` | `en` | **Váš jazyk** – pro češtinu nastavte `"cs"` |
+| `translator.ignore_languages` | `[]` | Další jazyky, kterým rozumíte (nepřekládají se) |
 | `stt.backend` | `mlx-whisper` | `mlx-whisper`, `faster-whisper` nebo `openai` |
 | `llm.backend` | `anthropic` | `anthropic`, `openai` nebo `ollama` |
 | `audio.source` | `mac` | `mac` (mikrofon Macu/AirPods) nebo `glasses` (mikrofon G1, potřebuje [liblc3](https://github.com/google/liblc3)) |
 | `glasses.chars_per_line` | `38` | Šířka řádku na displeji G1 |
+
+## Jazyk
+
+Výchozí je angličtina – pro češtinu nastavte v `config.toml`:
+
+```toml
+[translator]
+native_language = "cs"
+```
+
+Pak se vše překládá do češtiny, čeština se ignoruje, výslovnost se píše českým pravopisem
+a popisky v brýlích jsou česky. Funguje to stejně pro další jazyky (de, es, fr, sk, pl…).
 
 ## Offline režim a náklady
 

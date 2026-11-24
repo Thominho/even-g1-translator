@@ -22,8 +22,9 @@ with a pronunciation guide so you can simply read them out loud.
 
 <p align="center"><img src="docs/demo.svg" alt="Live translation on the left, three reply suggestions with pronunciation on the right" width="900"></p>
 
-> **Native language:** the app currently translates **into Czech** and writes pronunciation for Czech
-> speakers. See [Adapting to another language](#adapting-to-another-language).
+> **Works in your language.** Set `native_language` to English, German, Spanish, French, Czech or
+> any other language – translations, pronunciation spelling and the glasses UI follow it.
+> See [Choosing your language](#choosing-your-language).
 
 ## Table of contents
 
@@ -35,7 +36,7 @@ with a pronunciation guide so you can simply read them out loud.
 - [Controls](#controls)
 - [Configuration](#configuration)
 - [Offline mode and costs](#offline-mode-and-costs)
-- [Adapting to another language](#adapting-to-another-language)
+- [Choosing your language](#choosing-your-language)
 - [Project structure](#project-structure)
 - [Troubleshooting](#troubleshooting)
 - [Contributing](#contributing)
@@ -124,7 +125,8 @@ All settings live in `config.toml` (see [`config.example.toml`](config.example.t
 | `translator.turn_end_s` | `1.5` | Silence (s) that ends the speaker's turn |
 | `translator.sentence_pause_s` | `0.7` | Pause between sentences – lower means faster subtitles |
 | `translator.show_spelling` | `false` | Show the written reply below the pronunciation |
-| `translator.ignore_languages` | `["cs"]` | Languages that are never translated |
+| `translator.native_language` | `en` | **Your language** – see [Choosing your language](#choosing-your-language) |
+| `translator.ignore_languages` | `[]` | Extra languages you understand (never translated) |
 | `stt.backend` | `mlx-whisper` | `mlx-whisper`, `faster-whisper` or `openai` |
 | `llm.backend` | `anthropic` | `anthropic`, `openai` or `ollama` |
 | `audio.source` | `mac` | `mac` (Mac/AirPods mic) or `glasses` (G1 mic, needs [liblc3](https://github.com/google/liblc3)) |
@@ -143,12 +145,24 @@ brew install ollama && ollama pull qwen2.5:7b
 # config.toml →  [llm] backend = "ollama"   model = "qwen2.5:7b"
 ```
 
-## Adapting to another language
+## Choosing your language
 
-The target language is Czech. To use another native language, change `HOME_LANG` in
-[`g1preklad/app.py`](g1preklad/app.py), the prompts in [`g1preklad/ai.py`](g1preklad/ai.py)
-(translation target and pronunciation spelling) and `ignore_languages` in your config.
-Pull requests that make this configurable are very welcome.
+Set your native language in `config.toml`:
+
+```toml
+[translator]
+native_language = "de"     # ISO 639-1 code: en, de, es, fr, it, pt, pl, nl, cs, sk, ja, …
+```
+
+| | What changes |
+|---|---|
+| **Translation** | Everything is translated into your language |
+| **Ignored speech** | Your own language is never translated (add more with `ignore_languages`) |
+| **Pronunciation** | Written with *your* spelling – an English speaker sees `see, meh GOOS-tah`, a Czech speaker `sí, me gusta` |
+| **Glasses UI** | Labels in your language for en, cs, sk, de, es, fr, it, pt, pl, nl – other languages fall back to English, language names shown as endonyms (`[ESPAÑOL]`) |
+
+Missing your language in the UI? Adding it is a few lines in
+[`g1preklad/i18n.py`](g1preklad/i18n.py) – pull requests welcome.
 
 ## Project structure
 
@@ -158,6 +172,7 @@ Pull requests that make this configurable are very welcome.
 | [`g1preklad/glasses.py`](g1preklad/glasses.py) | Connection to both temples (`bleak`) and the terminal simulator |
 | [`g1preklad/audio.py`](g1preklad/audio.py) | Mac / G1 microphone (LC3), speech segmentation |
 | [`g1preklad/ai.py`](g1preklad/ai.py) | Speech-to-text backends, LLM backends, prompts |
+| [`g1preklad/i18n.py`](g1preklad/i18n.py) | Native language, UI labels, language names |
 | [`g1preklad/app.py`](g1preklad/app.py) | Translator logic and command-line interface |
 | [`tests/`](tests) | Tests that run without hardware: `python -m pytest` |
 
@@ -177,7 +192,7 @@ Pull requests that make this configurable are very welcome.
 
 ## Contributing
 
-Issues and pull requests are welcome – especially hardware test reports, support for more native
+Issues and pull requests are welcome – especially hardware test reports, UI translations for more
 languages, and Linux / Windows testing.
 
 ## ⭐ Support the project
