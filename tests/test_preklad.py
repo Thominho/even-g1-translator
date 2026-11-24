@@ -166,3 +166,41 @@ async def test_no_replies_when_disabled():
     await asyncio.sleep(0.3)
     assert not any("JSON" in c[0] for c in llm.calls)
     await t.stop()
+
+
+class SlowLLM(FakeLLM):
+    async def chat(self, system, user, max_tokens=400):
+        if "JSON" in system:
+            await asyncio.sleep(0.4)
+        return await super().chat(system, user, max_tokens)
+
+
+async def _time_to_replies(prefetch):
+    g = SimGlasses(interactive=False, out=io.StringIO())
+    times = []
+    orig = g._send_page
+
+    async def rec(text, page, total):
+        times.append((asyncio.get_running_loop().time(), text))
+        await orig(text, page, total)
+    g._send_page = rec
+    src = FakeSource()
+    llm = SlowLLM()
+    t = Translator(g, FakeSTT([("¿Te gusta Paraguay?", "es", 0.95)]), Interpreter(llm),
+                   {"translator": {"turn_end_s": 0.3, "prefetch_replies": prefetch}}, source=src)
+    await t.start()
+    await speak(src, 1, gap_ms=900)
+    await asyncio.sleep(1.0)
+    await t.stop()
+    tr = next(ts for ts, x in times if "Líbí se ti" in x)
+    rp = next(ts for ts, x in times if x.startswith("ANO 1/3"))
+    n_reply_calls = sum("JSON" in c[0] for c in llm.calls)
+    return rp - tr, n_reply_calls
+
+
+async def test_prefetch_makes_replies_faster():
+    slow, _ = await _time_to_replies(False)
+    fast, calls = await _time_to_replies(True)
+    assert slow >= 0.65          # 0.3 s ticho + 0.4 s generování
+    assert fast < 0.45           # odpovědi hotové už během ticha
+    assert calls == 1            # nic se negeneruje dvakrát

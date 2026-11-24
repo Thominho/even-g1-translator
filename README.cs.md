@@ -42,6 +42,7 @@ mluví, a jakmile domluví, nabídnou **tři odpovědi v jeho jazyce** – naho�
 - 🏷️ **Název jazyka** u první věty.
 - ✅ **Tři návrhy odpovědí**, když mluvčí domluví: *ano / souhlas*, *zdvořilé ne* a *doplňující otázka* (nebo „zopakujte to prosím pomaleji“, když řeč nebyla srozumitelná).
 - 🗣️ **Výslovnost zapsaná česky** – nemusíte vědět, jak se cizí slova píšou.
+- ⚡ **Okamžité odpovědi** – návrhy se připravují na pozadí už po každé větě, takže naskočí hned, jak mluvčí přestane (≈ 1,5–2 s po posledním slově).
 - 🙊 **Vaše řeč se nepřekládá** – čeština se ignoruje a aplikace pozná, když nahlas přečtete jeden z návrhů.
 - 🔒 **Rozpoznávání řeči běží lokálně** na Macu (Whisper); k dispozici je i **úplně offline režim**.
 - 🧪 **Simulátor v terminálu** – vývoj a testování bez brýlí.
@@ -124,6 +125,7 @@ Vše je v `config.toml` (viz [`config.example.toml`](config.example.toml)).
 | Nastavení | Výchozí | Popis |
 |---|---|---|
 | `translator.replies` | `true` | Nabízet návrhy odpovědí |
+| `translator.prefetch_replies` | `true` | Připravovat odpovědi na pozadí pro okamžité zobrazení |
 | `translator.turn_end_s` | `1.5` | Ticho (s), po kterém mluvčí „domluvil“ |
 | `translator.sentence_pause_s` | `0.7` | Pauza mezi větami – menší = rychlejší titulky |
 | `translator.show_spelling` | `false` | Pod výslovností i psaná podoba odpovědi |

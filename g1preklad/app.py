@@ -50,6 +50,8 @@ class Translator:
         self.min_prob = float(c.get("min_language_probability", 0.6))
         self.replies_enabled = bool(c.get("replies", True))
         self.show_spelling = bool(c.get("show_spelling", False))
+        self.prefetch = bool(c.get("prefetch_replies", True))
+        self._pre: tuple[str, asyncio.Task] | None = None
         self.ignore = set(c.get("ignore_languages", [HOME_LANG]))
         self.seg = Segmenter(threshold=float(a.get("threshold", 500)),
                              silence_s=float(c.get("sentence_pause_s", 0.7)))
@@ -156,7 +158,19 @@ class Translator:
     def _schedule_turn_end(self) -> None:
         self._cancel_turn_timer()
         if self.replies_enabled:
+            if self.prefetch:
+                self._prefetch_replies()
             self._turn_timer = asyncio.create_task(self._turn_end())
+
+    def _prefetch_replies(self) -> None:
+        """Po každé větě připraví odpovědi na pozadí – při konci promluvy jsou hned hotové."""
+        turn = " ".join(self.turn_orig)
+        if self._pre is not None and self._pre[0] == turn:
+            return
+        if self._pre is not None and not self._pre[1].done():
+            self._pre[1].cancel()   # starší verze promluvy už není potřeba
+        ctx = self.history[:-len(self.turn_orig)]
+        self._pre = (turn, asyncio.create_task(self.interp.replies(turn, self.lang, ctx)))
 
     async def _turn_end(self) -> None:
         await asyncio.sleep(self.turn_end_s)
@@ -164,7 +178,13 @@ class Translator:
             return
         turn = " ".join(self.turn_orig)
         try:
-            replies = await self.interp.replies(turn, self.lang, self.history[:-len(self.turn_orig)])
+            if self._pre is not None and self._pre[0] == turn:
+                replies = await asyncio.shield(self._pre[1])   # obvykle už hotové
+            else:
+                replies = await self.interp.replies(turn, self.lang,
+                                                    self.history[:-len(self.turn_orig)])
+        except asyncio.CancelledError:
+            raise
         except Exception:
             log.exception("návrhy odpovědí selhaly")
             return
@@ -172,6 +192,7 @@ class Translator:
             return  # mezitím začal zase mluvit
         self.replies, self.reply_idx = replies, 0
         self.turn_orig, self.turn_cs = [], []
+        self._pre = None
         if replies:
             await self.show_reply()
 
@@ -191,6 +212,9 @@ class Translator:
         await self.g.show("\n".join(lines))
 
     def new_conversation(self) -> None:
+        if self._pre is not None and not self._pre[1].done():
+            self._pre[1].cancel()
+        self._pre = None
         self.lang = None
         self.turn_orig, self.turn_cs, self.history = [], [], []
         self.replies, self.showing_replies = [], False
