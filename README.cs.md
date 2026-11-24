@@ -49,13 +49,7 @@ mluví, a jakmile domluví, nabídnou **tři odpovědi v jeho jazyce** – naho�
 
 ## Jak to funguje
 
-```
- mikrofon ─► rozdělení na věty ─► Whisper (text + jazyk)
-                                      │
-                                      ├─► LLM: překlad ───────────────────► displej G1 (Bluetooth LE)
-                                      │
-                    mluvčí domluvil ──┴─► LLM: 3 odpovědi + výslovnost ───► displej G1
-```
+<p align="center"><img src="docs/how-it-works.cs.svg" alt="Schéma: mikrofon → Whisper (lokálně) → překlad přes API → displej G1; odpovědi se připravují po každé větě" width="900"></p>
 
 Aplikace komunikuje s G1 přímo přes **Bluetooth Low Energy** (Nordic UART, obě stranice) podle
 oficiálního protokolu z [EvenDemoApp](https://github.com/even-realities/EvenDemoApp).
@@ -108,13 +102,7 @@ python -m g1preklad run
 
 ## Ovládání
 
-| Gesto na TouchBaru | Akce |
-|---|---|
-| Ťuk vpravo / vlevo | Další / předchozí návrh odpovědi |
-| Dvojťuk | Zavřít návrhy · podruhé: nový rozhovor |
-| Podržet vpravo / zvednout hlavu | Znovu ukázat návrhy |
-| Ťuk vlevo (bez návrhů) | Zobrazit / skrýt originál nad překladem |
-| Trojťuk | Pauza / pokračovat |
+<p align="center"><img src="docs/controls.cs.svg" alt="Ovládání TouchBarem na levé a pravé stranici" width="900"></p>
 
 Simulátor (napsat + Enter): `d` / `a` ťuk vpravo / vlevo · `aa` dvojťuk · `ttt` trojťuk · `H` podržet vpravo · `q` konec.
 

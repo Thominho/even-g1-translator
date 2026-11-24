@@ -55,13 +55,7 @@ with a pronunciation guide so you can simply read them out loud.
 
 ## How it works
 
-```
- microphone ─► speech segmentation ─► Whisper (text + language)
-                                          │
-                                          ├─► LLM: translation ─────────────► G1 display (Bluetooth LE)
-                                          │
-                     speaker finished ────┴─► LLM: 3 replies + pronunciation ─► G1 display
-```
+<p align="center"><img src="docs/how-it-works.svg" alt="Pipeline: microphone → Whisper (local) → translation via API → G1 display; replies prepared after every sentence" width="900"></p>
 
 The app talks to the G1 directly over **Bluetooth Low Energy** (Nordic UART, both temples), based on
 Even Realities' official [EvenDemoApp](https://github.com/even-realities/EvenDemoApp) protocol.
@@ -115,13 +109,7 @@ python -m g1preklad run
 
 ## Controls
 
-| TouchBar gesture | Action |
-|---|---|
-| Tap right / left | Next / previous reply suggestion |
-| Double tap | Close suggestions · again: start a new conversation |
-| Hold right / look up | Show the suggestions again |
-| Tap left (no suggestions shown) | Toggle the original text above the translation |
-| Triple tap | Pause / resume |
+<p align="center"><img src="docs/controls.svg" alt="TouchBar controls on the left and right temple" width="900"></p>
 
 Simulator keys (type + Enter): `d` / `a` tap right / left · `aa` double tap · `ttt` triple tap · `H` hold right · `q` quit.
 
