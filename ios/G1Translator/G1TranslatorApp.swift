@@ -20,6 +20,7 @@ struct G1TranslatorApp: App {
                 .environmentObject(settings)
                 .environmentObject(glasses)
                 .environmentObject(engine)
+                .environmentObject(engine.listener)
                 .preferredColorScheme(.dark)
         }
     }
@@ -29,6 +30,7 @@ struct ContentView: View {
     @EnvironmentObject var settings: Settings
     @EnvironmentObject var glasses: G1Glasses
     @EnvironmentObject var engine: TranslatorEngine
+    @EnvironmentObject var listener: SpeechListener
     @State private var showSettings = false
 
     private let green = Color(red: 0.24, green: 1.0, blue: 0.56)
@@ -46,6 +48,12 @@ struct ContentView: View {
                     .padding()
                     .background(Color.black, in: RoundedRectangle(cornerRadius: 14))
                     .overlay(RoundedRectangle(cornerRadius: 14).stroke(green.opacity(0.5)))
+
+                if engine.running {
+                    Label(settings.t(listener.activeSource == .glasses ? "G1 glasses" : "iPhone / AirPods"),
+                          systemImage: "mic.fill")
+                        .font(.footnote).foregroundStyle(.secondary)
+                }
 
                 if !engine.status.isEmpty {
                     Text(settings.t(engine.status)).font(.footnote).foregroundStyle(.orange)

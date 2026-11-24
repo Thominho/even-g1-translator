@@ -44,14 +44,16 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    Picker(settings.t("Microphone"), selection: $settings.useGlassesMic) {
-                        Text(settings.t("G1 glasses")).tag(true)
-                        Text(settings.t("iPhone / AirPods")).tag(false)
+                    Picker(settings.t("Microphone"), selection: $settings.micMode) {
+                        Text(settings.t("Automatic (best)")).tag("auto")
+                        Text(settings.t("G1 glasses")).tag("glasses")
+                        Text(settings.t("iPhone / AirPods")).tag("phone")
                     }
+                    Toggle(settings.t("Better recognition (online)"), isOn: $settings.onlineRecognition)
                 } header: {
                     Text(settings.t("Audio"))
                 } footer: {
-                    Text(settings.t("With the glasses microphone your iPhone can stay in your pocket."))
+                    Text(settings.t("Automatic listens with both microphones and uses the one that hears the speaker better. Online recognition is more accurate in noise but needs internet."))
                 }
 
                 Section(settings.t("Conversation")) {

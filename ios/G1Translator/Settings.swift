@@ -15,7 +15,8 @@ final class Settings: ObservableObject {
     @Published var turnEnd: Double { didSet { d.set(turnEnd, forKey: "turnEnd") } }
     @Published var charsPerLine: Double { didSet { d.set(charsPerLine, forKey: "charsPerLine") } }
     @Published var appLanguage: String { didSet { d.set(appLanguage, forKey: "appLanguage") } }
-    @Published var useGlassesMic: Bool { didSet { d.set(useGlassesMic, forKey: "glassesMic") } }
+    @Published var micMode: String { didSet { d.set(micMode, forKey: "micMode") } }   // auto | glasses | phone
+    @Published var onlineRecognition: Bool { didSet { d.set(onlineRecognition, forKey: "onlineRecognition") } }
     @Published var apiKey: String { didSet { Keychain.save(apiKey, for: "apiKey") } }
 
     init() {
@@ -28,7 +29,8 @@ final class Settings: ObservableObject {
         followUps = d.object(forKey: "followUps") as? Bool ?? true
         turnEnd = d.object(forKey: "turnEnd") as? Double ?? 1.5
         charsPerLine = d.object(forKey: "charsPerLine") as? Double ?? 38
-        useGlassesMic = d.object(forKey: "glassesMic") as? Bool ?? true
+        micMode = d.string(forKey: "micMode") ?? "auto"
+        onlineRecognition = d.object(forKey: "onlineRecognition") as? Bool ?? true
         appLanguage = d.string(forKey: "appLanguage") ?? "en"
         apiKey = Keychain.load("apiKey") ?? ""
     }
@@ -44,6 +46,8 @@ final class Settings: ObservableObject {
     func localeName(_ id: String) -> String {
         Locale(identifier: appLanguage).localizedString(forIdentifier: id) ?? id
     }
+
+    var mic: MicMode { MicMode(rawValue: micMode) ?? .auto }
 
     /// The conversation language as an ISO code, e.g. "es" from "es-ES".
     var conversationLanguage: String { String(speechLocale.prefix(2)) }

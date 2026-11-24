@@ -2,12 +2,21 @@ import AVFoundation
 import Foundation
 import Speech
 
-/// Continuous speech recognition with Apple's built-in recognizer (free, on-device when available).
+enum MicMode: String, CaseIterable { case auto, glasses, phone }
+enum MicSource: String { case glasses, phone }
+
+/// Continuous speech recognition with Apple's built-in recognizer.
+///
+/// Audio can come from the G1 glasses (`ingest(_, .glasses)`) and/or the iPhone microphone.
+/// In `.auto` mode both are listened to and the one that hears the speaker better
+/// (higher speech-to-noise ratio) is fed to the recognizer. The chosen stream gets
+/// automatic gain so quiet or distant speakers are still recognised.
 /// A sentence is finished when no new words arrive for `sentencePause` seconds.
 @MainActor
 final class SpeechListener: ObservableObject {
     @Published private(set) var running = false
     @Published private(set) var error: String?
+    @Published private(set) var activeSource: MicSource = .phone
 
     var onPartial: ((String) -> Void)?
     var onSentence: ((String) -> Void)?
@@ -18,15 +27,18 @@ final class SpeechListener: ObservableObject {
 
     private let engine = AVAudioEngine()
     private var recognizer: SFSpeechRecognizer?
-    private var request: SFSpeechAudioBufferRecognitionRequest? {
-        didSet { tapRequest = request }
-    }
-    /// Read from the audio thread – audio buffers must be appended synchronously in the tap.
-    nonisolated(unsafe) private var tapRequest: SFSpeechAudioBufferRecognitionRequest?
+    private var request: SFSpeechAudioBufferRecognitionRequest?
     private var task: SFSpeechRecognitionTask?
     private var current = ""
     private var sentenceTimer: Task<Void, Never>?
     private var generation = 0
+    private var mode: MicMode = .auto
+    private var online = true
+
+    private let pcmFormat = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: 16_000,
+                                          channels: 1, interleaved: false)!
+    /// Used on the audio thread only.
+    nonisolated(unsafe) private var converter: AVAudioConverter?
 
     static func requestPermissions() async -> Bool {
         let speech = await withCheckedContinuation { cont in
@@ -36,14 +48,14 @@ final class SpeechListener: ObservableObject {
         return speech && mic
     }
 
-    /// true = audio comes from the glasses (appendPCM), the phone microphone only keeps the app alive.
-    nonisolated(unsafe) private var externalAudio = false
-    private let pcmFormat = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: 16_000,
-                                          channels: 1, interleaved: false)!
+    // MARK: - Start / stop
 
-    func start(localeID: String, externalAudio: Bool = false) {
+    func start(localeID: String, mode: MicMode, online: Bool) {
         stop()
-        self.externalAudio = externalAudio
+        self.mode = mode
+        self.online = online
+        stats = [:]
+        activeSource = mode == .glasses ? .glasses : .phone
         guard let rec = SFSpeechRecognizer(locale: Locale(identifier: localeID)), rec.isAvailable else {
             error = "Speech recognition is not available for this language."
             return
@@ -55,10 +67,14 @@ final class SpeechListener: ObservableObject {
                                     options: [.allowBluetooth, .defaultToSpeaker, .mixWithOthers])
             try session.setActive(true, options: .notifyOthersOnDeactivation)
 
+            // The iPhone microphone always runs: it is a source in auto/phone mode
+            // and keeps the app alive in the background in glasses mode.
             let input = engine.inputNode
             let format = input.outputFormat(forBus: 0)
+            converter = AVAudioConverter(from: format, to: pcmFormat)
             input.removeTap(onBus: 0)
-            input.installTap(onBus: 0, bufferSize: 1024, format: format, block: Self.makeTap(self))
+            input.installTap(onBus: 0, bufferSize: 2048, format: format,
+                             block: Self.makeTap(self, outFormat: pcmFormat))
             engine.prepare()
             try engine.start()
             running = true
@@ -82,13 +98,107 @@ final class SpeechListener: ObservableObject {
         current = ""
     }
 
+    // MARK: - Choosing the better microphone
+
+    private struct Stats {
+        var level: Float = 0          // short-term loudness
+        var noise: Float = 0.01       // background noise floor
+        var speech: Float = 0.05      // typical speech loudness (for gain)
+        var gain: Float = 1
+        var lastSeen = Date.distantPast
+        var snr: Float { level / max(noise, 0.0005) }
+    }
+    private var stats: [MicSource: Stats] = [:]
+    private var betterSince: Date?
+
+    /// 16 kHz mono Int16 PCM from one of the microphones.
+    func ingest(_ data: Data, from source: MicSource) {
+        guard running, data.count >= 2 else { return }
+        if mode == .glasses && source == .phone { return }
+        if mode == .phone && source == .glasses { return }
+
+        var samples = data.withUnsafeBytes { Array($0.bindMemory(to: Int16.self)) }
+        let rms = Self.rms(samples)
+        var s = stats[source] ?? Stats()
+        s.lastSeen = Date()
+        s.level = s.level * 0.6 + rms * 0.4
+        s.noise = rms < s.noise ? s.noise * 0.9 + rms * 0.1 : s.noise * 0.998 + rms * 0.002
+        let isSpeech = rms > s.noise * 3 && rms > 0.004
+        if isSpeech { s.speech = s.speech * 0.95 + rms * 0.05 }
+        stats[source] = s
+
+        if mode == .auto { chooseSource() }
+        guard source == activeSource else { return }
+
+        // automatic gain: bring speech to a comfortable level (max 6×)
+        let target = min(6, max(1, 0.12 / max(s.speech, 0.001)))
+        s.gain += (target - s.gain) * 0.1
+        stats[source] = s
+        if s.gain > 1.05 {
+            for i in samples.indices {
+                samples[i] = Int16(clamping: Int(Float(samples[i]) * s.gain))
+            }
+        }
+        append(samples)
+        if isSpeech { lastVoiceAt = Date() }
+    }
+
+    private func chooseSource() {
+        let now = Date()
+        let glassesAlive = now.timeIntervalSince(stats[.glasses]?.lastSeen ?? .distantPast) < 1
+        if !glassesAlive {
+            if activeSource != .phone { activeSource = .phone }
+            betterSince = nil
+            return
+        }
+        let other: MicSource = activeSource == .glasses ? .phone : .glasses
+        guard let a = stats[activeSource], let b = stats[other] else {
+            if stats[activeSource] == nil, stats[other] != nil { activeSource = other }
+            return
+        }
+        // switch only when the other microphone is clearly better for a while (no flapping)
+        if b.snr > a.snr * 1.5, b.level > 0.006 {
+            if let since = betterSince {
+                if now.timeIntervalSince(since) > 0.8 {
+                    activeSource = other
+                    betterSince = nil
+                }
+            } else {
+                betterSince = now
+            }
+        } else {
+            betterSince = nil
+        }
+    }
+
+    private func append(_ samples: [Int16]) {
+        guard let request,
+              let buffer = AVAudioPCMBuffer(pcmFormat: pcmFormat, frameCapacity: AVAudioFrameCount(samples.count)),
+              let channel = buffer.int16ChannelData?[0] else { return }
+        buffer.frameLength = AVAudioFrameCount(samples.count)
+        samples.withUnsafeBufferPointer { src in
+            channel.update(from: src.baseAddress!, count: samples.count)
+        }
+        request.append(buffer)
+    }
+
+    nonisolated private static func rms(_ samples: [Int16]) -> Float {
+        guard !samples.isEmpty else { return 0 }
+        var sum: Float = 0
+        for v in samples { let f = Float(v) / 32768; sum += f * f }
+        return (sum / Float(samples.count)).squareRoot()
+    }
+
+    // MARK: - Recognition
+
     private func startRecognition() {
         guard let recognizer else { return }
         generation += 1
         let gen = generation
         let req = SFSpeechAudioBufferRecognitionRequest()
         req.shouldReportPartialResults = true
-        if recognizer.supportsOnDeviceRecognition { req.requiresOnDeviceRecognition = true }
+        // online = Apple's servers: more accurate in noise; offline = on the iPhone
+        req.requiresOnDeviceRecognition = !online && recognizer.supportsOnDeviceRecognition
         req.addsPunctuation = true
         request = req
         current = ""
@@ -96,13 +206,24 @@ final class SpeechListener: ObservableObject {
     }
 
     // Callbacks arrive on background threads: build them outside the main actor.
-    nonisolated private static func makeTap(_ listener: SpeechListener) -> AVAudioNodeTapBlock {
+    nonisolated private static func makeTap(_ listener: SpeechListener, outFormat: AVAudioFormat)
+        -> AVAudioNodeTapBlock {
         { [weak listener] buffer, _ in
-            guard let listener, !listener.externalAudio else { return }
-            listener.tapRequest?.append(buffer)
-            if rms(buffer) > 0.015 {
-                Task { @MainActor in listener.lastVoiceAt = Date() }
+            guard let listener, let converter = listener.converter else { return }
+            let ratio = outFormat.sampleRate / buffer.format.sampleRate
+            let capacity = AVAudioFrameCount(Double(buffer.frameLength) * ratio) + 16
+            guard let out = AVAudioPCMBuffer(pcmFormat: outFormat, frameCapacity: capacity) else { return }
+            var fed = false
+            var err: NSError?
+            converter.convert(to: out, error: &err) { _, status in
+                if fed { status.pointee = .noDataNow; return nil }
+                fed = true
+                status.pointee = .haveData
+                return buffer
             }
+            guard err == nil, out.frameLength > 0, let ch = out.int16ChannelData?[0] else { return }
+            let data = Data(bytes: ch, count: Int(out.frameLength) * 2)
+            Task { @MainActor in listener.ingest(data, from: .phone) }
         }
     }
 
@@ -117,26 +238,6 @@ final class SpeechListener: ObservableObject {
                 listener.handle(text: text, isFinal: isFinal, failed: failed)
             }
         }
-    }
-
-    /// 16 kHz mono Int16 PCM from the glasses microphone.
-    func appendPCM(_ data: Data) {
-        guard running, externalAudio, data.count >= 2 else { return }
-        let frames = AVAudioFrameCount(data.count / 2)
-        guard let buffer = AVAudioPCMBuffer(pcmFormat: pcmFormat, frameCapacity: frames),
-              let channel = buffer.int16ChannelData?[0] else { return }
-        buffer.frameLength = frames
-        var sum: Float = 0
-        data.withUnsafeBytes { raw in
-            let src = raw.bindMemory(to: Int16.self)
-            for i in 0..<Int(frames) {
-                channel[i] = src[i]
-                let v = Float(src[i]) / 32768
-                sum += v * v
-            }
-        }
-        tapRequest?.append(buffer)
-        if (sum / Float(frames)).squareRoot() > 0.015 { lastVoiceAt = Date() }
     }
 
     private func handle(text: String?, isFinal: Bool, failed: Bool) {
@@ -175,12 +276,5 @@ final class SpeechListener: ObservableObject {
         guard running else { return }
         startRecognition()
         if !text.isEmpty { onSentence?(text) }
-    }
-
-    nonisolated private static func rms(_ buffer: AVAudioPCMBuffer) -> Float {
-        guard let ch = buffer.floatChannelData?[0], buffer.frameLength > 0 else { return 0 }
-        var sum: Float = 0
-        for i in 0..<Int(buffer.frameLength) { sum += ch[i] * ch[i] }
-        return (sum / Float(buffer.frameLength)).squareRoot()
     }
 }

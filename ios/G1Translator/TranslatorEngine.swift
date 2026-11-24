@@ -43,7 +43,7 @@ final class TranslatorEngine: ObservableObject {
         glasses.onEvent = { [weak self] ev, side in self?.onEvent(ev, side: side) }
         glasses.onAudio = { [weak self] lc3data in
             guard let self, self.running, !self.paused else { return }
-            self.listener.appendPCM(self.lc3.decode(lc3data))
+            self.listener.ingest(self.lc3.decode(lc3data), from: .glasses)
         }
     }
 
@@ -61,9 +61,9 @@ final class TranslatorEngine: ObservableObject {
         }
         glasses.charsPerLine = settings.charsPerLine
         if !glasses.isConnected { glasses.connect() }
-        listener.start(localeID: settings.speechLocale, externalAudio: settings.useGlassesMic)
+        listener.start(localeID: settings.speechLocale, mode: settings.mic, online: settings.onlineRecognition)
         if let err = listener.error { status = err; return }
-        glasses.setMic(settings.useGlassesMic)
+        glasses.setMic(settings.mic != .phone)
         running = true
         paused = false
         status = ""
@@ -86,8 +86,8 @@ final class TranslatorEngine: ObservableObject {
             glasses.setMic(false)
             listener.stop()
         } else {
-            listener.start(localeID: settings.speechLocale, externalAudio: settings.useGlassesMic)
-            glasses.setMic(settings.useGlassesMic)
+            listener.start(localeID: settings.speechLocale, mode: settings.mic, online: settings.onlineRecognition)
+            glasses.setMic(settings.mic != .phone)
         }
         show(paused ? lang.t("paused") : lang.t("listening"))
     }
