@@ -211,6 +211,40 @@ REPLY_SYS = (
     "\"meaning\": \"...\"}}, ...]}}")
 
 
+FOLLOWUP_SYS = (
+    "The user is a native {native} speaker talking with someone in {lang}, which the user does not "
+    "speak. The other person just said something and the user will answer with ONE of the replies "
+    "listed below. For EACH reply, suggest 3 short follow-up questions IN {lang} the user can ask "
+    "right after answering, to keep the conversation going:\n"
+    "1. if the other person asked the user a question, ask the same question back (e.g. 'And you?'); "
+    "otherwise a natural reaction question,\n"
+    "2.–3. other sensible, friendly questions on the topic.\n"
+    "Each max 8 words, simple vocabulary, with a pronunciation guide in {native} spelling "
+    "conventions and the meaning in {native}.\n"
+    "Return ONLY JSON: {{\"followups\": [[{{\"text\": \"...\", \"pron\": \"...\", \"meaning\": \"...\"}}, "
+    "...3 items], ...one list per reply, in the same order]}}")
+
+
+def _reply_from(d: dict, kind: str = "") -> Reply | None:
+    if not isinstance(d, dict) or not d.get("text"):
+        return None
+    return Reply(kind, str(d["text"]).strip(), str(d.get("pron", "")).strip(),
+                 str(d.get("meaning", d.get("cs", ""))).strip())
+
+
+def parse_followups(raw: str, n: int) -> list[list[Reply]]:
+    m = re.search(r"\{.*\}", raw, re.S)
+    try:
+        data = json.loads(m.group(0)) if m else {}
+    except json.JSONDecodeError:
+        data = {}
+    out: list[list[Reply]] = []
+    for group in (data.get("followups") or [])[:n]:
+        items = [r for r in (_reply_from(d, "ask") for d in (group or [])[:3]) if r]
+        out.append(items)
+    return out + [[] for _ in range(n - len(out))]
+
+
 def parse_replies(raw: str) -> list[Reply]:
     m = re.search(r"\{.*\}", raw, re.S)
     if not m:
@@ -248,3 +282,13 @@ class Interpreter:
         user += f"They just said:\n{turn}"
         sys = REPLY_SYS.format(native=self.native, lang=english_name(lang))
         return parse_replies(await self.llm.chat(sys, user, 500))
+
+    async def followups(self, turn: str, lang: str | None, context: list[str],
+                        replies: list[Reply]) -> list[list[Reply]]:
+        user = ""
+        if context:
+            user += "Conversation so far:\n" + "\n".join(context[-8:]) + "\n\n"
+        user += f"They just said:\n{turn}\n\nThe user's possible replies:\n"
+        user += "\n".join(f"{i + 1}. {r.text}" for i, r in enumerate(replies))
+        sys = FOLLOWUP_SYS.format(native=self.native, lang=english_name(lang))
+        return parse_followups(await self.llm.chat(sys, user, 900), len(replies))

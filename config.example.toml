@@ -7,6 +7,7 @@ native_language = "en"            # YOUR language: translate into it, never tran
                                    # UI labels: en, cs, sk, de, es, fr, it, pt, pl, nl (others fall back to English)
 replies = true                     # offer 3 reply suggestions when the speaker finishes
 prefetch_replies = true            # prepare replies in the background after every sentence → shown instantly
+follow_up_questions = true         # after you read a reply aloud, suggest questions to ask back
 show_spelling = false              # also show how the reply is written (below the pronunciation)
 turn_end_s = 1.5                   # seconds of silence = speaker finished
 sentence_pause_s = 0.7             # pause between sentences – lower = faster subtitles

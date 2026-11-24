@@ -51,6 +51,9 @@ class Translator:
         self.replies_enabled = bool(c.get("replies", True))
         self.show_spelling = bool(c.get("show_spelling", False))
         self.prefetch = bool(c.get("prefetch_replies", True))
+        self.followups_enabled = bool(c.get("follow_up_questions", True))
+        self.mode = "reply"                      # "reply" = answers, "ask" = questions to ask
+        self._fu: asyncio.Task | None = None
         self._pre: tuple[str, asyncio.Task] | None = None
         self.L = Lang(c.get("native_language", "en"))
         self.ignore = {self.L.native, *c.get("ignore_languages", [])}
@@ -115,14 +118,11 @@ class Translator:
         if heard.lang in self.ignore:
             log.info("[%s] %s – ignoruji (čeština)", heard.lang, text)
             return
-        # Tomáš právě nahlas přečetl jeden z návrhů → nepřekládat
+        # the user just read one of the suggestions aloud → don't translate it
         if self.replies:
             best = max(self.replies, key=lambda r: similar(r.text, text))
             if similar(best.text, text) >= 0.6:
-                self.history.append(f"Já: {best.text}")
-                self.replies = []
-                self.showing_replies = False
-                await self.g.show(f"{self.L.t('you_said')}: {best.meaning or best.text}\n{self.L.t('listening')}")
+                await self.on_user_said(best)
                 return
 
         self.last_speech = time.monotonic()
@@ -131,7 +131,10 @@ class Translator:
             self.lang = heard.lang
             self.turn_orig, self.turn_cs = [], []
         self.showing_replies = False
-        self.replies = []
+        self.replies, self.mode = [], "reply"
+        if self._fu is not None and not self._fu.done():
+            self._fu.cancel()
+        self._fu = None
 
         cs = await self.interp.translate(text, self.lang, self.history)
         self.turn_orig.append(text)
@@ -191,11 +194,35 @@ class Translator:
             return
         if self.seg.speaking or not self.queue.empty():
             return  # mezitím začal zase mluvit
-        self.replies, self.reply_idx = replies, 0
+        self.replies, self.reply_idx, self.mode = replies, 0, "reply"
         self.turn_orig, self.turn_cs = [], []
         self._pre = None
+        if replies and self.followups_enabled:
+            # prepare "what to ask next" for every reply while the user is reading them
+            self._fu = asyncio.create_task(self.interp.followups(
+                turn, self.lang, self.history[-8:], replies))
         if replies:
             await self.show_reply()
+
+    async def on_user_said(self, said: Reply) -> None:
+        """The user said a suggestion. After an answer, offer questions to ask back."""
+        self.history.append(f"Me: {said.text}")
+        fus: list[Reply] = []
+        if self.mode == "reply" and self._fu is not None:
+            idx = next((i for i, r in enumerate(self.replies) if r is said), -1)
+            try:
+                all_fu = await asyncio.wait_for(asyncio.shield(self._fu), 6)
+                fus = all_fu[idx] if 0 <= idx < len(all_fu) else []
+            except Exception:
+                log.exception("follow-up questions failed")
+        self._fu = None
+        self.showing_replies = False
+        if fus:
+            self.replies, self.reply_idx, self.mode = fus, 0, "ask"
+            await self.show_reply()
+        else:
+            self.replies, self.mode = [], "reply"
+            await self.g.show(f"{self.L.t('you_said')}: {said.meaning or said.text}\n{self.L.t('listening')}")
 
     async def show_reply(self) -> None:
         if not self.replies:
@@ -203,7 +230,7 @@ class Translator:
             return
         self.showing_replies = True
         r = self.replies[self.reply_idx]
-        label = self.L.label(r.kind)
+        label = self.L.t("ask") if self.mode == "ask" else self.L.label(r.kind)
         # nahoře česky, pod tím odpověď v jazyce mluvčího a výslovnost
         head = f"{label} {self.reply_idx + 1}/{len(self.replies)}"
         lines = [f"{head}: {r.meaning}" if r.meaning else head]

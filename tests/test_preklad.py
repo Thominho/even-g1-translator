@@ -39,12 +39,21 @@ REPLIES = json.dumps({"replies": [
     {"kind": "otazka", "text": "¿Y a ti?", "pron": "i a ti", "cs": "A tobě?"}]})
 
 
+FOLLOWUPS = json.dumps({"followups": [
+    [{"text": "¿Y a ti te gusta Praga?", "pron": "i a ti te gusta praga", "meaning": "A tobě se líbí Praha?"},
+     {"text": "¿Cuánto tiempo vives aquí?", "pron": "kuanto tjempo bives aki", "meaning": "Jak dlouho tu žiješ?"},
+     {"text": "¿Qué me recomiendas visitar?", "pron": "ke me rekomjendas visitar", "meaning": "Co mi doporučíš?"}],
+    [], []]})
+
+
 class FakeLLM:
     def __init__(self):
         self.calls = []
 
     async def chat(self, system, user, max_tokens=400):
         self.calls.append((system, user))
+        if "follow-up questions" in system:
+            return FOLLOWUPS
         if "JSON" in system:
             return "Tady jsou návrhy:\n" + REPLIES
         last = user.rsplit("\n", 1)[-1]
@@ -124,9 +133,13 @@ async def test_czech_ignored_and_own_reply_not_translated():
     assert g.screens[-1].startswith("ANO 1/3")
     await speak(src, 1)                  # česky → nic
     assert g.screens[-1].startswith("ANO 1/3")
-    await speak(src, 1)                  # Tomáš přečetl návrh
-    assert g.screens[-1].startswith("Řekl jsi: Ano, moc.")
+    await speak(src, 1)                  # Tomáš přečetl návrh ANO → nabídnou se otázky
+    assert g.screens[-1] == "ZEPTEJ SE 1/3: A tobě se líbí Praha?\n> i a ti te gusta praga"
+    await g.press("d")
+    assert g.screens[-1].startswith("ZEPTEJ SE 2/3: Jak dlouho tu žiješ?")
     assert len([c for c in llm.calls if "JSON" not in c[0]]) == 1   # překládala se jen 1 věta
+    fu = next(c for c in llm.calls if "follow-up questions" in c[0])
+    assert "Sí, me gusta mucho." in fu[1] and "same question back" in fu[0]
     await t.stop()
 
 
@@ -195,7 +208,7 @@ async def _time_to_replies(prefetch):
     await t.stop()
     tr = next(ts for ts, x in times if "Líbí se ti" in x)
     rp = next(ts for ts, x in times if x.startswith("ANO 1/3"))
-    n_reply_calls = sum("JSON" in c[0] for c in llm.calls)
+    n_reply_calls = sum("very short replies" in c[0] for c in llm.calls)
     return rp - tr, n_reply_calls
 
 
@@ -244,3 +257,15 @@ def test_ui_fallback_and_endonyms():
     assert Lang("de").name("es") == "Español"
     assert Lang("ja").t("listening") == "Listening…"   # neznámý UI jazyk → angličtina
     assert Lang("cs").name("es") == "španělština"
+
+
+async def test_followup_question_read_aloud_and_no_followups_fallback():
+    t, g, src, llm = make(items=[("¿Te gusta Paraguay?", "es", 0.95),
+                                 ("No mucho, la verdad", "es", 0.9)])
+    await t.start()
+    await speak(src, 1)
+    await asyncio.sleep(0.4)
+    await speak(src, 1)                  # přečetl NE – pro něj LLM otázky nemá → "Řekl jsi"
+    assert g.screens[-1].startswith("Řekl jsi: Moc ne.")
+    assert t.replies == [] and t.mode == "reply"
+    await t.stop()
