@@ -1,183 +1,173 @@
 <div align="center">
 
+<img src="docs/app-icon.svg" width="120" alt="Ikona G1 Translator">
+
 # Even G1 Live Translator
 
-**Překlad řeči v reálném čase s návrhy odpovědí pro chytré brýle Even Realities G1**
+**Překlad řeči v reálném čase s odpověďmi připravenými k vyslovení pro chytré brýle Even Realities G1**
 
-[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
-[![Platforma: macOS](https://img.shields.io/badge/platforma-macOS-lightgrey.svg)](#požadavky)
+[![iOS 17+](https://img.shields.io/badge/iOS-17%2B-black.svg)](ios)
+[![macOS](https://img.shields.io/badge/macOS-Python%203.11%2B-blue.svg)](#-aplikace-pro-mac)
 [![Licence: MIT](https://img.shields.io/badge/licence-MIT-green.svg)](LICENSE)
 [![Even Realities G1](https://img.shields.io/badge/zařízení-Even%20Realities%20G1-black.svg)](https://www.evenrealities.com/g1)
+[![GitHub stars](https://img.shields.io/github/stars/Thominho/even-g1-translator?style=social)](https://github.com/Thominho/even-g1-translator/stargazers)
 
-[English](README.md) · **Čeština**
+⭐ *Pomohl vám projekt? Hvězdička pomůže, aby ho našli i další – děkuji!*
+
+[🇬🇧 English](README.md) · **🇨🇿 Čeština** · [🇸🇰 Slovenčina](README.sk.md) · [🇩🇪 Deutsch](README.de.md) · [🇪🇸 Español](README.es.md) · [🇫🇷 Français](README.fr.md) · [🇮🇹 Italiano](README.it.md) · [🇵🇹 Português](README.pt.md) · [🇵🇱 Polski](README.pl.md) · [🇳🇱 Nederlands](README.nl.md)
 
 </div>
 
 ---
 
-Někdo na vás mluví jazykem, který neznáte – španělsky, anglicky, německy, čímkoli.
-Brýle **Even Realities G1** ukazují **živý překlad do češtiny**, u první věty napíší, **jakým jazykem**
-mluví, a jakmile domluví, nabídnou **tři odpovědi v jeho jazyce** – nahoře česky, co říkáte, pod tím
-**výslovnost**, takže odpověď stačí přečíst nahlas.
+Někdo na vás mluví jazykem, který neznáte. Brýle **Even Realities G1** ukazují **živý překlad**,
+u první věty napíší, **jaký je to jazyk**, a jakmile mluvčí domluví, nabídnou **tři odpovědi v jeho
+jazyce** s výslovností. Jednu přečtete nahlas a brýle navrhnou, **na co se zeptat zpátky**. Chcete říct
+něco jiného? **Řekněte to svým jazykem** a uvidíte to přeložené. Telefon zůstává v kapse.
 
-<p align="center"><img src="docs/demo.cs.svg" alt="Vlevo živý překlad, vpravo tři návrhy odpovědí s výslovností" width="900"></p>
+<p align="center"><img src="docs/demo.cs.svg" alt="Živý překlad, tři návrhy odpovědí s výslovností a otázky zpátky" width="900"></p>
 
 ## Obsah
 
 - [Funkce](#funkce)
 - [Jak to funguje](#jak-to-funguje)
-- [Aplikace pro iPhone](#-aplikace-pro-iphone)
-- [Požadavky](#požadavky)
-- [Rychlý start](#rychlý-start)
-- [Použití s brýlemi](#použití-s-brýlemi)
+- [📱 Aplikace pro iPhone](#-aplikace-pro-iphone) – doporučeno
 - [Ovládání](#ovládání)
-- [Nastavení](#nastavení)
-- [Jazyk](#jazyk)
-- [Offline režim a náklady](#offline-režim-a-náklady)
+- [Volba jazyka](#volba-jazyka)
+- [💻 Aplikace pro Mac](#-aplikace-pro-mac)
+- [Náklady a soukromí](#náklady-a-soukromí)
 - [Řešení potíží](#řešení-potíží)
-- [Licence](#licence)
+- [Struktura projektu](#struktura-projektu)
+- [Přispívání](#přispívání)
 
 ## Funkce
 
-- 🌍 **Automatické rozpoznání jazyka** – zhruba 100 jazyků, přepne se samo, když začne mluvit někdo jiný jinou řečí.
-- 💬 **Živý překlad** po větách, s ohledem na předchozí průběh rozhovoru.
+- 💬 **Živý překlad** po větách, s ohledem na dosavadní průběh rozhovoru.
 - 🏷️ **Název jazyka** u první věty.
-- 🙌 **Úplně bez rukou** – nic se neťuká, vše naskočí samo. TouchBar je jen volitelný.
-- ✅ **Všechny tři návrhy odpovědí na jedné obrazovce**, když mluvčí domluví: *ano / souhlas*, *zdvořilé ne* a *doplňující otázka* (nebo „zopakujte to prosím pomaleji“, když řeč nebyla srozumitelná).
-- 🗣️ **Výslovnost zapsaná česky** – nemusíte vědět, jak se cizí slova píšou.
-- 🗣️ **Řekněte cokoliv** – podržte levý TouchBar (nebo tlačítko v aplikaci pro iPhone), řekněte to svým jazykem a brýle ukážou větu v jazyce protějšku s výslovností.
-- 🔁 **Rozhovor nevázne** – jakmile nahlas přečtete odpověď, brýle nabídnou, na co se zeptat vy: stejnou otázku zpátky („A ty?“) a dvě další rozumné otázky.
-- ⚡ **Okamžité odpovědi** – návrhy se připravují na pozadí už po každé větě, takže naskočí hned, jak mluvčí přestane (≈ 1,5–2 s po posledním slově).
-- 🙊 **Vaše řeč se nepřekládá** – čeština se ignoruje a aplikace pozná, když nahlas přečtete jeden z návrhů.
-- 🔒 **Rozpoznávání řeči běží lokálně** na Macu (Whisper); k dispozici je i **úplně offline režim**.
-- 🧪 **Simulátor v terminálu** – vývoj a testování bez brýlí.
+- ✅ **Tři odpovědi na jedné obrazovce**, když mluvčí domluví – *ano*, *zdvořilé ne*, *doplňující otázka* (nebo „zopakujte to prosím pomaleji").
+- 🗣️ **Výslovnost psaná pro vás** – pravopisem vašeho jazyka.
+- 🔁 **Rozhovor nevázne** – po vaší odpovědi brýle navrhnou, na co se zeptat zpátky (*„A ty?"* a dvě další rozumné otázky).
+- 🎙️ **Řekněte cokoliv** – podržte levý TouchBar, řekněte to svým jazykem a uvidíte to v jeho jazyce i s výslovností.
+- 🙌 **Bez rukou** – všechno naskočí samo, gesta jsou volitelná.
+- 🎧 **Chytrý mikrofon** – poslouchá brýlemi G1 *i* iPhonem a použije ten, který mluvčího slyší lépe, s automatickým zesílením. Telefon může zůstat v kapse.
+- ⚡ **Rychlost** – odpovědi i otázky se připravují na pozadí, takže naskočí hned, jak mluvčí přestane.
+- 🙊 **Pozná vás** – váš jazyk se nikdy nepřekládá a aplikace pozná, když nahlas přečtete návrh.
+- 🌍 **Váš jazyk** – překlady, výslovnost a popisky v brýlích v 10 jazycích (en, cs, sk, de, es, fr, it, pt, pl, nl); rozhraní aplikace ve stejných jazycích.
 
 ## Jak to funguje
 
-<p align="center"><img src="docs/how-it-works.cs.svg" alt="Schéma: mikrofon → Whisper (lokálně) → překlad přes API → displej G1; odpovědi se připravují po každé větě" width="900"></p>
+<p align="center"><img src="docs/how-it-works.cs.svg" alt="Mikrofon → řeč na text → překlad přes Claude API → displej G1; odpovědi se připravují po každé větě" width="900"></p>
 
-Aplikace komunikuje s G1 přímo přes **Bluetooth Low Energy** (Nordic UART, obě stranice) podle
+Brýle jsou displej a mikrofony – přemýšlí telefon. Řeč se převádí na text v telefonu (rozpoznávání řeči
+v iOS) nebo na Macu (Whisper); překlady, odpovědi a výslovnost dodává **Claude API** (ve výchozím
+nastavení Claude Haiku – rychlý a levný). Aplikace komunikuje s G1 přímo přes **Bluetooth LE** podle
 oficiálního protokolu z [EvenDemoApp](https://github.com/even-realities/EvenDemoApp).
 
 ## 📱 Aplikace pro iPhone
 
-Použití **bez notebooku**: nativní aplikace pro iPhone ve složce [`ios/`](ios) umí totéž – rozpoznávání řeči v iOS (zdarma, přímo v telefonu) + LLM API + displej G1. Jednou ji sestavíte v Xcode a pak běží v telefonu, i se zamčenou obrazovkou. Návod je v [ios/README.md](ios/README.md) (anglicky).
+Nativní aplikace ve SwiftUI ve složce [`ios/`](ios) – vše běží v iPhonu, počítač při používání nepotřebujete.
 
-## Požadavky
-
-- **macOS** s Bluetooth (ideálně čip Apple Silicon kvůli rychlému lokálnímu přepisu)
-- **Python 3.11+**
-- Brýle **Even Realities G1** (pro simulátor nejsou potřeba)
-- Jazykový model: API klíč **Anthropic (Claude API)** – výchozí, rychlý a levný Claude Haiku – nebo **OpenAI**, případně **Ollama** pro úplný offline
-
-## Rychlý start
+**Instalace** (jednou, potřebuje Mac s Xcode – stačí obyčejné Apple ID):
 
 ```bash
+brew install xcodegen
 git clone https://github.com/Thominho/even-g1-translator.git
-cd even-g1-translator
-
-python3 -m venv .venv && source .venv/bin/activate
-pip install -e .
-pip install mlx-whisper              # Apple Silicon  (Intel: pip install faster-whisper)
-
-cp config.example.toml config.toml   # nastavte native_language = "cs"; výchozí je Claude API s Claude Haiku
-export ANTHROPIC_API_KEY="..."       # nebo OPENAI_API_KEY – trvale do ~/.zshrc
+cd even-g1-translator/ios && xcodegen && open G1Translator.xcodeproj
 ```
 
-Test překladu a odpovědí bez mikrofonu:
+V Xcode: **Signing & Capabilities** → vyberte svůj **Team** (Apple ID) a jedinečný **Bundle Identifier**,
+zvolte svůj iPhone a klikněte na **▶ Run**. V iPhonu důvěřujte vývojářskému certifikátu
+(*Nastavení → Obecné → VPN a správa zařízení*) a zapněte *Režim pro vývojáře*.
 
-```bash
-python -m g1preklad demo "¿Te gusta vivir en Paraguay?"
-```
+> S obyčejným Apple ID aplikace funguje **7 dní** – pak stačí připojit iPhone a znovu kliknout na Run.
 
-Celá aplikace se **simulovaným displejem** v terminálu (mikrofon Macu – pusťte si video v cizím jazyce):
+**První spuštění** – v aplikaci otevřete *Nastavení*:
 
-```bash
-python -m g1preklad run --sim
-```
+| Nastavení | |
+|---|---|
+| Mluví | Jazyk rozhovoru (rozpoznávání v iOS ho potřebuje znát předem) |
+| Váš jazyk | Překlady, výslovnost a popisky v brýlích |
+| Jazyk aplikace | Jazyk rozhraní – výchozí angličtina, 10 jazyků |
+| API klíč | Z [Anthropic Console](https://console.anthropic.com); seznam modelů se načte sám, předvybraný je Claude Haiku |
+| Mikrofon | **Automaticky** (lepší z brýlí a iPhonu), brýle G1, nebo iPhone / AirPods |
+| Přesnější rozpoznávání (online) | Rozpoznávání na serverech Applu – v hluku přesnější, potřebuje internet |
 
-Při prvním spuštění macOS požádá o přístup k **mikrofonu** a **Bluetooth** a jednorázově se stáhne
-model Whisper (~1,5 GB).
-
-## Použití s brýlemi
-
-1. **Zavřete aplikaci Even Realities** v telefonu – G1 přijme vždy jen jedno připojení.
-2. Vyndejte brýle z pouzdra a nasaďte je.
-3. Spusťte:
-
-```bash
-python -m g1preklad run
-```
+Pak **zavřete aplikaci Even Realities** (G1 přijme vždy jen jedno připojení), nasaďte brýle a klepněte na **Spustit**.
 
 ## Ovládání
 
-<p align="center"><img src="docs/controls.cs.svg" alt="Ovládání TouchBarem na levé a pravé stranici" width="900"></p>
+<p align="center"><img src="docs/controls.cs.svg" alt="Podržet vlevo: řekni to svým jazykem. Dvojťuk: skrýt návrhy / nový rozhovor. Trojťuk: pauza." width="900"></p>
 
-Simulátor (napsat + Enter): `d` / `a` ťuk vpravo / vlevo · `aa` dvojťuk · `ttt` trojťuk · `H` podržet vpravo · `q` konec.
+Zvednutím hlavy se návrhy ukážou znovu. V aplikaci pro iPhone jsou tytéž akce i jako tlačítka.
 
-## Nastavení
+## Volba jazyka
 
-Vše je v `config.toml` (viz [`config.example.toml`](config.example.toml)).
+Nastavte **Váš jazyk** (iPhone) nebo `native_language` (Mac). Řídí se jím všechno:
 
-| Nastavení | Výchozí | Popis |
-|---|---|---|
-| `translator.replies` | `true` | Nabízet návrhy odpovědí |
-| `translator.prefetch_replies` | `true` | Připravovat odpovědi na pozadí pro okamžité zobrazení |
-| `translator.follow_up_questions` | `true` | Po vaší odpovědi nabídnout otázky, na co se zeptat |
-| `translator.reply_layout` | `all` | `all` = všechny návrhy na jedné obrazovce, `one` = po jednom, střídají se samy |
-| `translator.turn_end_s` | `1.5` | Ticho (s), po kterém mluvčí „domluvil“ |
-| `translator.sentence_pause_s` | `0.7` | Pauza mezi větami – menší = rychlejší titulky |
-| `translator.show_spelling` | `false` | Pod výslovností i psaná podoba odpovědi |
-| `translator.native_language` | `en` | **Váš jazyk** – pro češtinu nastavte `"cs"` |
-| `translator.ignore_languages` | `[]` | Další jazyky, kterým rozumíte (nepřekládají se) |
-| `stt.backend` | `mlx-whisper` | `mlx-whisper`, `faster-whisper` nebo `openai` |
-| `llm.backend` | `anthropic` | `anthropic`, `openai` nebo `ollama` |
-| `audio.source` | `mac` | `mac` (mikrofon Macu/AirPods) nebo `glasses` (mikrofon G1, potřebuje [liblc3](https://github.com/google/liblc3)) |
-| `glasses.chars_per_line` | `38` | Šířka řádku na displeji G1 |
+| | Co se mění |
+|---|---|
+| Překlad | Vše se překládá do vašeho jazyka |
+| Ignorovaná řeč | Váš jazyk se nikdy nepřekládá |
+| Výslovnost | Psaná pro vás – Angličan vidí `see, meh GOOS-tah`, Čech `sí, me gusta` |
+| Řekni to | Diktujete svým jazykem |
+| Popisky v brýlích | en, cs, sk, de, es, fr, it, pt, pl, nl (ostatní anglicky) |
 
-## Jazyk
+Chybí váš jazyk? Přidejte ho v [`g1preklad/i18n.py`](g1preklad/i18n.py) a [`ios/G1Translator/I18n.swift`](ios/G1Translator/I18n.swift) – pull requesty vítám.
 
-Výchozí je angličtina – pro češtinu nastavte v `config.toml`:
+## 💻 Aplikace pro Mac
 
-```toml
-[translator]
-native_language = "cs"
-```
-
-Pak se vše překládá do češtiny, čeština se ignoruje, výslovnost se píše českým pravopisem
-a popisky v brýlích jsou česky. Funguje to stejně pro další jazyky (de, es, fr, sk, pl…).
-
-## Offline režim a náklady
-
-| Část | Výchozí | Cena |
-|---|---|---|
-| Rozpoznání řeči | Whisper, **lokálně** | Zdarma |
-| Překlad + odpovědi | Claude API (Claude Haiku) | Zlomky haléře až haléře za větu |
-| Úplně offline | [Ollama](https://ollama.com) + `qwen2.5:7b` | Zdarma, nižší kvalita |
+Původní verze v Pythonu – běží na Macu s Bluetooth a jazyk rozpozná sama (Whisper).
 
 ```bash
-brew install ollama && ollama pull qwen2.5:7b
-# config.toml →  [llm] backend = "ollama"   model = "qwen2.5:7b"
+git clone https://github.com/Thominho/even-g1-translator.git && cd even-g1-translator
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e . && pip install mlx-whisper      # Intel Mac: pip install faster-whisper
+cp config.example.toml config.toml                # nastavte native_language = "cs"; výchozí Claude API s Claude Haiku
+export ANTHROPIC_API_KEY="..."
+python -m g1preklad demo "¿Te gusta vivir en Paraguay?"   # test bez mikrofonu
+python -m g1preklad run --sim                            # simulovaný displej v terminálu
+python -m g1preklad run                                  # s brýlemi
 ```
+
+Hlavní nastavení v `config.toml`: `native_language`, `replies`, `follow_up_questions`, `reply_layout`,
+`turn_end_s`, `prefetch_replies`, `[stt] backend`, `[llm] backend` (`anthropic`, `openai`, nebo `ollama`
+pro úplný offline). Viz [`config.example.toml`](config.example.toml).
+
+## Náklady a soukromí
+
+| Část | Kde | Cena |
+|---|---|---|
+| Řeč → text | V iPhonu / na Macu (online rozpoznávání volitelně) | Zdarma |
+| Překlad, odpovědi | Claude API (Claude Haiku) | Zlomky haléře až haléře za větu |
+| Úplně offline (Mac) | Whisper + [Ollama](https://ollama.com) | Zdarma, nižší kvalita |
+
+Do API jde jen text – zvuk se nikam neukládá. API klíč je uložený v Klíčence iOS.
 
 ## Řešení potíží
 
 | Potíž | Řešení |
 |---|---|
-| Brýle se nenajdou | Zavřete aplikaci Even / vypněte Bluetooth v telefonu; spusťte `python -m g1preklad -v run` |
-| Divné zalomení řádků | Upravte `glasses.chars_per_line` |
-| Titulky se zpožďují | Snižte `sentence_pause_s`, použijte menší model Whisper |
-| Návrhy přichází moc brzo / pozdě | Upravte `turn_end_s` |
-| Překládá okolní hluk | Zvyšte `audio.threshold` |
-| Spojení vypadává | Snižte `glasses.heartbeat_s` |
+| Brýle se nenajdou | Zavřete aplikaci Even Realities; vyndejte brýle z pouzdra |
+| Mluvčímu není rozumět | Mikrofon → *Automaticky* nebo *iPhone*, zapněte *Přesnější rozpoznávání (online)* |
+| Návrhy přichází moc brzo / pozdě | Upravte *Pauzu před odpověďmi* |
+| Divné zalomení řádků | Upravte *Znaků na řádek* |
+| Aplikace po týdnu přestala fungovat | Limit obyčejného Apple ID – v Xcode znovu klikněte na ▶ Run |
 
-> **Stav projektu:** první verze. Implementace BLE vychází z oficiální dokumentace protokolu,
-> ale na skutečném hardwaru byla zatím testována jen omezeně. Hlášení chyb s výpisem `-v` vítám.
+> **Stav projektu:** první verze – sestavuje se a běží v iPhonu; testování s brýlemi v běžném provozu pokračuje.
+> Hlášení chyb vítám.
+
+## Struktura projektu
+
+| Cesta | |
+|---|---|
+| [`ios/`](ios) | Aplikace pro iPhone (SwiftUI): Bluetooth G1, mikrofon brýlí (LC3 přes Google liblc3), rozpoznávání řeči, Claude API |
+| [`g1preklad/`](g1preklad) | Aplikace pro Mac (Python): protokol, brýle, zvuk, Whisper, LLM |
+| [`tests/`](tests) | Testy v Pythonu bez hardwaru: `python -m pytest` |
+| [`docs/`](docs) | Ilustrace |
 
 ## Přispívání
 
-Issues i pull requesty jsou vítané – hlavně zkušenosti z reálných brýlí, podpora dalších rodných
-jazyků a testování na Linuxu / Windows.
+Issues i pull requesty jsou vítané – hlavně zkušenosti z reálného používání, další jazyky a verze pro Android.
 
 ## ⭐ Podpořte projekt
 
@@ -186,6 +176,6 @@ Pokud vám projekt pomohl domluvit se nebo vás zachránil z trapné chvíle v z
 
 ## Licence
 
-[MIT](LICENSE)
+[MIT](LICENSE) · Dekodér LC3: Google liblc3 (Apache 2.0)
 
-*Projekt není spojen se společností Even Realities ani jí schválen. „Even Realities“ a „G1“ jsou ochranné známky příslušného vlastníka.*
+*Projekt není spojen se společností Even Realities ani jí schválen. „Even Realities" a „G1" jsou ochranné známky příslušného vlastníka.*
