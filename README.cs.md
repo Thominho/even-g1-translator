@@ -20,21 +20,7 @@ Brýle **Even Realities G1** ukazují **živý překlad do češtiny**, u první
 mluví, a jakmile domluví, nabídnou **tři odpovědi v jeho jazyce** – nahoře česky, co říkáte, pod tím
 **výslovnost**, takže odpověď stačí přečíst nahlas.
 
-```
- ┌─────────────────────────────────────────┐        ┌─────────────────────────────────────────┐
- │ [ŠPANĚLŠTINA]                           │        │ ANO 1/3: Ano, moc se mi tam líbí.       │
- │ Ahoj, odkud jsi? Líbí se ti Paraguay?   │  ──►   │ > sí, me gusta mučo                     │
- │                                         │        │                                         │
- └─────────────────────────────────────────┘        └─────────────────────────────────────────┘
-    když mluví: živý překlad                       domluvil → odpověď 1 (ťuk vpravo ►)
-
- ┌─────────────────────────────────────────┐        ┌─────────────────────────────────────────┐
- │ NE 2/3: Upřímně, moc ne.                │        │ OTÁZKA 3/3: A ty jsi odkud?             │
- │ > no mučo, la verdad                    │  ──►   │ > i tu, de donde eres                   │
- │                                         │        │                                         │
- └─────────────────────────────────────────┘        └─────────────────────────────────────────┘
-    odpověď 2: zdvořilé ne (ťuk ►)                 odpověď 3: doplňující otázka
-```
+<p align="center"><img src="docs/demo.cs.svg" alt="Vlevo živý překlad, vpravo tři návrhy odpovědí s výslovností" width="900"></p>
 
 ## Obsah
 

@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="980" height="430" viewBox="0 0 980 430" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">
+<rect width="980" height="430" rx="16" fill="#0b0f0d"/>
+<text x="40" y="48" fill="#8b949e" font-size="14" text-anchor="start" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">KDYŽ MLUVÍ</text>
+<text x="520" y="48" fill="#8b949e" font-size="14" text-anchor="start" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">KDYŽ DOMLUVÍ – 3 ODPOVĚDI</text>
+<rect x="40" y="64" width="400" height="150" rx="10" fill="#050806" stroke="#2a9d63" stroke-width="1.5"/>
+<text x="60" y="98" fill="#2a9d63" font-size="17" font-weight="700">[ŠPANĚLŠTINA]</text>
+<text x="60" y="126" fill="#3cff8f" font-size="17">Ahoj, odkud jsi?</text>
+<text x="60" y="154" fill="#3cff8f" font-size="17">Líbí se ti Paraguay?</text>
+<text x="40" y="240" fill="#8b949e" font-size="14" text-anchor="start" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">Živý překlad, u první věty</text>
+<text x="40" y="262" fill="#8b949e" font-size="14" text-anchor="start" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">název jazyka.</text>
+<path d="M455 139 H500" stroke="#2a9d63" stroke-width="2.5" fill="none"/><path d="M500 131 L512 139 L500 147 Z" fill="#2a9d63"/>
+<rect x="520" y="64" width="420" height="96" rx="10" fill="#050806" stroke="#2a9d63" stroke-width="1.5"/>
+<text x="540" y="100" font-size="17"><tspan fill="#2a9d63" font-weight="700">ANO 1/3:</tspan><tspan dx="10" fill="#3cff8f">Ano, moc se mi tam líbí.</tspan></text>
+<text x="540" y="132" font-size="17" fill="#3cff8f">&gt; sí, me gusta mučo</text>
+<text x="928" y="84" font-size="12" fill="#8b949e" text-anchor="end" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">ano</text>
+<rect x="520" y="172" width="420" height="96" rx="10" fill="#050806" stroke="#2a9d63" stroke-width="1.5"/>
+<text x="540" y="208" font-size="17"><tspan fill="#2a9d63" font-weight="700">NE 2/3:</tspan><tspan dx="10" fill="#3cff8f">Upřímně, moc ne.</tspan></text>
+<text x="540" y="240" font-size="17" fill="#3cff8f">&gt; no mučo, la verdad</text>
+<text x="928" y="192" font-size="12" fill="#8b949e" text-anchor="end" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">zdvořilé ne</text>
+<rect x="520" y="280" width="420" height="96" rx="10" fill="#050806" stroke="#2a9d63" stroke-width="1.5"/>
+<text x="540" y="316" font-size="17"><tspan fill="#2a9d63" font-weight="700">OTÁZKA 3/3:</tspan><tspan dx="10" fill="#3cff8f">A ty jsi odkud?</tspan></text>
+<text x="540" y="348" font-size="17" fill="#3cff8f">&gt; i tu, de donde eres</text>
+<text x="928" y="300" font-size="12" fill="#8b949e" text-anchor="end" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">doplňující otázka</text>
+<text x="520" y="404" fill="#8b949e" font-size="14" text-anchor="start" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">Ťuk vpravo / vlevo = přepnout • nahoře význam • dole jak to říct</text>
+</svg>

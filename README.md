@@ -20,21 +20,7 @@ Your **Even Realities G1** glasses show a **live translation**, tell you **which
 spoken and, as soon as the speaker finishes, offer **three ready-to-say replies in their language**,
 with a pronunciation guide so you can simply read them out loud.
 
-```
- ┌─────────────────────────────────────────┐        ┌─────────────────────────────────────────┐
- │ [ŠPANĚLŠTINA]                           │        │ ANO 1/3: Ano, moc se mi tam líbí.       │
- │ Ahoj, odkud jsi? Líbí se ti Paraguay?   │  ──►   │ > sí, me gusta mučo                     │
- │                                         │        │                                         │
- └─────────────────────────────────────────┘        └─────────────────────────────────────────┘
-    while they speak: live translation             finished → reply 1 (tap right ►)
-
- ┌─────────────────────────────────────────┐        ┌─────────────────────────────────────────┐
- │ NE 2/3: Upřímně, moc ne.                │        │ OTÁZKA 3/3: A ty jsi odkud?             │
- │ > no mučo, la verdad                    │  ──►   │ > i tu, de donde eres                   │
- │                                         │        │                                         │
- └─────────────────────────────────────────┘        └─────────────────────────────────────────┘
-    reply 2: polite no (tap right ►)               reply 3: follow-up question
-```
+<p align="center"><img src="docs/demo.svg" alt="Live translation on the left, three reply suggestions with pronunciation on the right" width="900"></p>
 
 > **Native language:** the app currently translates **into Czech** and writes pronunciation for Czech
 > speakers. See [Adapting to another language](#adapting-to-another-language).
