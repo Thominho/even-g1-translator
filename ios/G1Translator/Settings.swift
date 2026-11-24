@@ -14,6 +14,7 @@ final class Settings: ObservableObject {
     @Published var followUps: Bool { didSet { d.set(followUps, forKey: "followUps") } }
     @Published var turnEnd: Double { didSet { d.set(turnEnd, forKey: "turnEnd") } }
     @Published var charsPerLine: Double { didSet { d.set(charsPerLine, forKey: "charsPerLine") } }
+    @Published var appLanguage: String { didSet { d.set(appLanguage, forKey: "appLanguage") } }
     @Published var useGlassesMic: Bool { didSet { d.set(useGlassesMic, forKey: "glassesMic") } }
     @Published var apiKey: String { didSet { Keychain.save(apiKey, for: "apiKey") } }
 
@@ -28,7 +29,20 @@ final class Settings: ObservableObject {
         turnEnd = d.object(forKey: "turnEnd") as? Double ?? 1.5
         charsPerLine = d.object(forKey: "charsPerLine") as? Double ?? 38
         useGlassesMic = d.object(forKey: "glassesMic") as? Bool ?? true
+        appLanguage = d.string(forKey: "appLanguage") ?? "en"
         apiKey = Keychain.load("apiKey") ?? ""
+    }
+
+    /// App interface text in the chosen app language (English by default).
+    func t(_ key: String) -> String { UIStrings.t(key, appLanguage) }
+
+    /// Name of a language / locale in the app language.
+    func languageName(_ code: String) -> String {
+        Locale(identifier: appLanguage).localizedString(forLanguageCode: code)?.capitalized(with: Locale(identifier: appLanguage)) ?? code
+    }
+
+    func localeName(_ id: String) -> String {
+        Locale(identifier: appLanguage).localizedString(forIdentifier: id) ?? id
     }
 
     /// The conversation language as an ISO code, e.g. "es" from "es-ES".
@@ -39,7 +53,7 @@ final class Settings: ObservableObject {
     /// Locales the built-in speech recognizer supports, sorted by name.
     static var speechLocales: [String] {
         SFSpeechRecognizer.supportedLocales().map { $0.identifier.replacingOccurrences(of: "_", with: "-") }
-            .sorted { localeName($0) < localeName($1) }
+            .sorted()
     }
 
     static func localeName(_ id: String) -> String {

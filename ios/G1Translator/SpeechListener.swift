@@ -45,7 +45,7 @@ final class SpeechListener: ObservableObject {
         stop()
         self.externalAudio = externalAudio
         guard let rec = SFSpeechRecognizer(locale: Locale(identifier: localeID)), rec.isAvailable else {
-            error = "Speech recognition is not available for \(localeID)."
+            error = "Speech recognition is not available for this language."
             return
         }
         recognizer = rec

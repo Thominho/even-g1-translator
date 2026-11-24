@@ -41,6 +41,8 @@ The phone screen mirrors what the glasses show. The app keeps working with the s
 
 ## Notes
 
+- App interface: English by default; Czech, Slovak, German, Spanish, French, Italian, Portuguese, Polish and Dutch in Settings → App language.
+
 - iOS speech recognition needs the conversation language chosen in advance (no automatic detection).
 - Your own speech in your native language is filtered out by the translation step.
 - Microphone: the **G1 glasses** by default (your iPhone can stay in your pocket), or iPhone / AirPods – switch in Settings. The G1 audio (LC3) is decoded with Google liblc3 (Apache 2.0, `G1Translator/lc3`).

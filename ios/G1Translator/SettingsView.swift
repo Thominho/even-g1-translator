@@ -13,60 +13,65 @@ struct SettingsView: View {
         NavigationStack {
             Form {
                 Section {
-                    Picker("They speak", selection: $settings.speechLocale) {
-                        ForEach(locales, id: \.self) { Text(Settings.localeName($0)).tag($0) }
+                    Picker(settings.t("They speak"), selection: $settings.speechLocale) {
+                        ForEach(locales.sorted { settings.localeName($0) < settings.localeName($1) }, id: \.self) {
+                            Text(settings.localeName($0)).tag($0)
+                        }
                     }
-                    Picker("Your language", selection: $settings.nativeLanguage) {
+                    Picker(settings.t("Your language"), selection: $settings.nativeLanguage) {
+                        ForEach(Lang.supportedNative, id: \.self) { Text(settings.languageName($0)).tag($0) }
+                    }
+                    Picker(settings.t("App language"), selection: $settings.appLanguage) {
                         ForEach(Lang.supportedNative, id: \.self) {
-                            Text(Lang.displayName($0, in: Locale.current.identifier)).tag($0)
+                            Text(Lang.displayName($0, in: $0)).tag($0)
                         }
                     }
                 } header: {
-                    Text("Languages")
+                    Text(settings.t("Languages"))
                 } footer: {
-                    Text("Speech is recognised by iOS on the device. Translations, pronunciation and the glasses display use your language.")
+                    Text(settings.t("Speech is recognised by iOS on the device. Translations, pronunciation and the glasses display use your language."))
                 }
 
                 Section {
-                    SecureField("API key", text: $settings.apiKey)
+                    SecureField(settings.t("API key"), text: $settings.apiKey)
                         .textInputAutocapitalization(.never).autocorrectionDisabled()
                         .onSubmit { Task { await loadModels() } }
                     modelPicker
                 } header: {
                     Text("Anthropic API")
                 } footer: {
-                    Text("Create a key in the Anthropic Console. The fastest low-cost model is selected by default. The key is stored in the iOS Keychain.")
+                    Text(settings.t("Create a key in the Anthropic Console. The fastest low-cost model is selected by default. The key is stored in the iOS Keychain."))
                 }
 
                 Section {
-                    Picker("Microphone", selection: $settings.useGlassesMic) {
-                        Text("G1 glasses").tag(true)
-                        Text("iPhone / AirPods").tag(false)
+                    Picker(settings.t("Microphone"), selection: $settings.useGlassesMic) {
+                        Text(settings.t("G1 glasses")).tag(true)
+                        Text(settings.t("iPhone / AirPods")).tag(false)
                     }
                 } header: {
-                    Text("Audio")
+                    Text(settings.t("Audio"))
                 } footer: {
-                    Text("With the glasses microphone your iPhone can stay in your pocket.")
+                    Text(settings.t("With the glasses microphone your iPhone can stay in your pocket."))
                 }
 
-                Section("Conversation") {
-                    Toggle("Suggest replies", isOn: $settings.replies)
-                    Toggle("Suggest questions to ask back", isOn: $settings.followUps)
+                Section(settings.t("Conversation")) {
+                    Toggle(settings.t("Suggest replies"), isOn: $settings.replies)
+                    Toggle(settings.t("Suggest questions to ask back"), isOn: $settings.followUps)
                     VStack(alignment: .leading) {
-                        Text("Pause before replies: \(settings.turnEnd, specifier: "%.1f") s")
+                        Text(settings.t("Pause before replies") + ": " + String(format: "%.1f s", settings.turnEnd))
                         Slider(value: $settings.turnEnd, in: 0.8...3, step: 0.1)
                     }
                 }
 
-                Section("Display") {
+                Section(settings.t("Display")) {
                     VStack(alignment: .leading) {
-                        Text("Characters per line: \(Int(settings.charsPerLine))")
+                        Text(settings.t("Characters per line") + ": \(Int(settings.charsPerLine))")
                         Slider(value: $settings.charsPerLine, in: 28...46, step: 1)
                     }
                 }
             }
-            .navigationTitle("Settings")
-            .toolbar { Button("Done") { dismiss() } }
+            .navigationTitle(settings.t("Settings"))
+            .toolbar { Button(settings.t("Done")) { dismiss() } }
             .task { await loadModels() }
             .onChange(of: settings.apiKey) { _, key in
                 if key.count > 20 { Task { await loadModels() } }
@@ -76,22 +81,22 @@ struct SettingsView: View {
 
     @ViewBuilder private var modelPicker: some View {
         if loadingModels {
-            HStack { Text("Model"); Spacer(); ProgressView() }
+            HStack { Text(settings.t("Model")); Spacer(); ProgressView() }
         } else if !models.isEmpty {
-            Picker("Model", selection: $settings.model) {
+            Picker(settings.t("Model"), selection: $settings.model) {
                 ForEach(models) { Text($0.name).tag($0.id) }
                 if !settings.model.isEmpty, !models.contains(where: { $0.id == settings.model }) {
                     Text(settings.model).tag(settings.model)
                 }
             }
         } else {
-            TextField("Model ID", text: $settings.model)
+            TextField(settings.t("Model ID"), text: $settings.model)
                 .textInputAutocapitalization(.never).autocorrectionDisabled()
             if let modelError {
                 Text(modelError).font(.footnote).foregroundStyle(.orange)
             }
             if !settings.apiKey.isEmpty {
-                Button("Load models") { Task { await loadModels() } }
+                Button(settings.t("Load models")) { Task { await loadModels() } }
             }
         }
     }

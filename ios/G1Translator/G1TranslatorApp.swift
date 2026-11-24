@@ -48,10 +48,10 @@ struct ContentView: View {
                     .overlay(RoundedRectangle(cornerRadius: 14).stroke(green.opacity(0.5)))
 
                 if !engine.status.isEmpty {
-                    Text(engine.status).font(.footnote).foregroundStyle(.orange)
+                    Text(settings.t(engine.status)).font(.footnote).foregroundStyle(.orange)
                 }
 
-                Text("\(Settings.localeName(settings.speechLocale)) → \(Lang.displayName(settings.nativeLanguage, in: Locale.current.identifier))")
+                Text("\(settings.localeName(settings.speechLocale)) → \(settings.languageName(settings.nativeLanguage))")
                     .font(.subheadline).foregroundStyle(.secondary)
 
                 Spacer()
@@ -59,7 +59,7 @@ struct ContentView: View {
                 Button {
                     if engine.running { engine.stop() } else { Task { await engine.start() } }
                 } label: {
-                    Label(engine.running ? "Stop" : "Start", systemImage: engine.running ? "stop.fill" : "play.fill")
+                    Label(settings.t(engine.running ? "Stop" : "Start"), systemImage: engine.running ? "stop.fill" : "play.fill")
                         .font(.title3.bold())
                         .frame(maxWidth: .infinity, minHeight: 54)
                 }
@@ -68,9 +68,9 @@ struct ContentView: View {
 
                 if engine.running {
                     HStack {
-                        Button(engine.paused ? "Resume" : "Pause") { engine.togglePause() }
+                        Button(settings.t(engine.paused ? "Resume" : "Pause")) { engine.togglePause() }
                         Spacer()
-                        Button("New conversation") { engine.newConversation() }
+                        Button(settings.t("New conversation")) { engine.newConversation() }
                     }
                     .font(.subheadline)
                 }
@@ -89,15 +89,15 @@ struct ContentView: View {
         HStack {
             Image(systemName: "eyeglasses")
             switch glasses.state {
-            case .idle: Text("Glasses not connected")
-            case .scanning: Text("Searching for G1…")
-            case .connecting: Text("Connecting…")
-            case .connected: Text("G1 connected").foregroundStyle(green)
-            case .failed(let msg): Text(msg).foregroundStyle(.orange)
+            case .idle: Text(settings.t("Glasses not connected"))
+            case .scanning: Text(settings.t("Searching for G1…"))
+            case .connecting: Text(settings.t("Connecting…"))
+            case .connected: Text(settings.t("G1 connected")).foregroundStyle(green)
+            case .failed(let msg): Text(settings.t(msg)).foregroundStyle(.orange)
             }
             Spacer()
             if glasses.state != .connected {
-                Button("Connect") { glasses.connect() }.font(.subheadline)
+                Button(settings.t("Connect")) { glasses.connect() }.font(.subheadline)
             }
         }
         .font(.subheadline)
