@@ -1,0 +1,20 @@
+[project]
+name = "g1preklad"
+version = "0.1.0"
+description = "Překladač cizí řeči do češtiny s návrhy odpovědí pro Even G1"
+requires-python = ">=3.11"
+dependencies = ["bleak>=0.22", "sounddevice>=0.4", "numpy"]
+
+[project.optional-dependencies]
+mac = ["mlx-whisper"]
+intel = ["faster-whisper"]
+
+[project.scripts]
+g1preklad = "g1preklad.app:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["g1preklad"]

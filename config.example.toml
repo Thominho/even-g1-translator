@@ -1,0 +1,30 @@
+# g1preklad – zkopíruj jako config.toml
+# Claude API klíč patří do ~/.zshrc:  export ANTHROPIC_API_KEY="sk-ant-..."
+
+[translator]
+replies = true                     # po domluvení nabídnout odpovědi (ANO / NE / OTÁZKA)
+show_spelling = false              # true = pod výslovností i jak se odpověď píše
+turn_end_s = 1.5                  # jak dlouhé ticho = "domluvil" (s)
+sentence_pause_s = 0.7             # pauza mezi větami (s) – kratší = rychlejší titulky
+new_conversation_after_s = 90      # po takovém tichu se zapomene jazyk a kontext
+show_original = false              # originál nad překladem (ťuk vlevo přepíná)
+ignore_languages = ["cs"]          # tyhle jazyky se nepřekládají (přidej třeba "sk")
+min_language_probability = 0.6     # nejistá detekce u krátké věty → drží jazyk rozhovoru
+
+[stt]
+backend = "mlx-whisper"            # "mlx-whisper" (offline, Mac M1–M4), "faster-whisper" (offline), "openai" (API)
+model = "mlx-community/whisper-large-v3-turbo"   # rychlejší a horší: "mlx-community/whisper-small-mlx"
+
+[llm]
+backend = "anthropic"              # "anthropic" (Claude), "ollama" (offline, lokálně), "openai"
+model = "claude-haiku-5-5"
+api_key_env = "ANTHROPIC_API_KEY"
+
+[audio]
+source = "mac"                     # "mac" = mikrofon Macu/iPhonu přes Continuity/AirPods, "glasses" = mikrofon brýlí (liblc3)
+threshold = 500                    # citlivost detekce řeči
+
+[glasses]
+chars_per_line = 38
+heartbeat_s = 8
+# channel = "45"
