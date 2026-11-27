@@ -19,6 +19,8 @@ final class G1Glasses: NSObject, ObservableObject {
 
     private var central: CBCentralManager!
     private var found: [String: [String: CBPeripheral]] = [:]     // channel -> side -> peripheral
+    /// Names of nearby devices that look like glasses (shown when nothing matches).
+    @Published private(set) var seenNames: [String] = []
     private var peripherals: [String: CBPeripheral] = [:]         // side -> peripheral
     private var writeChars: [String: CBCharacteristic] = [:]
     private var waiters: [String: Waiter] = [:]
@@ -41,13 +43,20 @@ final class G1Glasses: NSObject, ObservableObject {
         wantConnect = true
         guard central.state == .poweredOn else { return }   // continues in centralManagerDidUpdateState
         found = [:]
+        seenNames = []
         state = .scanning
-        central.scanForPeripherals(withServices: nil, options: nil)
+        // Glasses already connected to this iPhone (e.g. kept by iOS after the Even app) don't advertise,
+        // so pick them up from the system first.
+        let known = central.retrieveConnectedPeripherals(withServices: [CBUUID(string: G1Protocol.uartService)])
+        for p in known { consider(p, name: p.name) }
+        guard state == .scanning else { return }
+        central.scanForPeripherals(withServices: nil, options: [CBCentralManagerScanOptionAllowDuplicatesKey: false])
         Task {
             try? await Task.sleep(for: .seconds(20))
             if self.state == .scanning {
                 self.central.stopScan()
-                self.state = .failed("G1 not found – close the Even Realities app and take the glasses out of the case.")
+                let seen = self.seenNames.isEmpty ? "" : " (" + self.seenNames.prefix(4).joined(separator: ", ") + ")"
+                self.state = .failed("G1 not found – close the Even Realities app and take the glasses out of the case." + seen)
             }
         }
     }
@@ -198,17 +207,25 @@ extension G1Glasses: CBCentralManagerDelegate, CBPeripheralDelegate {
     nonisolated func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral,
                                     advertisementData: [String: Any], rssi RSSI: NSNumber) {
         let name = (advertisementData[CBAdvertisementDataLocalNameKey] as? String) ?? peripheral.name
-        MainActor.assumeIsolated {
-            guard state == .scanning, let parsed = G1Protocol.parseName(name) else { return }
-            found[parsed.channel, default: [:]][parsed.side] = peripheral
-            if let pair = found[parsed.channel], let l = pair["L"], let r = pair["R"] {
-                central.stopScan()
-                state = .connecting
-                peripherals = ["L": l, "R": r]
-                for p in [l, r] {
-                    p.delegate = self
-                    central.connect(p, options: nil)
-                }
+        MainActor.assumeIsolated { consider(peripheral, name: name) }
+    }
+
+    /// Collects left/right temples of one pair and connects once both are found.
+    func consider(_ peripheral: CBPeripheral, name: String?) {
+        if let name, name.localizedCaseInsensitiveContains("G1") || name.localizedCaseInsensitiveContains("even"),
+           !seenNames.contains(name) {
+            seenNames.append(name)
+        }
+        guard state == .scanning, let parsed = G1Protocol.parseName(name) else { return }
+        found[parsed.channel, default: [:]][parsed.side] = peripheral
+        if let pair = found[parsed.channel], let l = pair["L"], let r = pair["R"] {
+            central.stopScan()
+            state = .connecting
+            peripherals = ["L": l, "R": r]
+            for p in [l, r] {
+                p.delegate = self
+                if p.state == .connected { p.discoverServices([CBUUID(string: G1Protocol.uartService)]) }
+                else { central.connect(p, options: nil) }
             }
         }
     }

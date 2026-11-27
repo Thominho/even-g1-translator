@@ -163,12 +163,12 @@ def is_ack(data: bytes, cmd: int) -> bool:
     return len(data) >= 2 and data[0] == cmd and data[1] == RSP_OK
 
 
-_NAME_RE = re.compile(r"^G1_(\d+)_([LR])_", re.I)
+_NAME_RE = re.compile(r"G1_(\d+)_([LR])_", re.I)
 
 
 def parse_name(name: str | None) -> tuple[str, str] | None:
     """'G1_45_L_92333' -> ('45', 'L')"""
     if not name:
         return None
-    m = _NAME_RE.match(name)
+    m = _NAME_RE.search(name)
     return (m.group(1), m.group(2).upper()) if m else None

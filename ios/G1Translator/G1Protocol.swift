@@ -26,11 +26,12 @@ enum G1Protocol {
     }
 
     /// "G1_45_L_92333" -> ("45", "L")
+    /// Accepts "G1_45_L_92333", "Even G1_45_L_92333" and similar advertised names.
     static func parseName(_ name: String?) -> (channel: String, side: String)? {
-        guard let name, name.hasPrefix("G1_") else { return nil }
-        let parts = name.split(separator: "_")
-        guard parts.count >= 3, ["L", "R"].contains(parts[2].uppercased()) else { return nil }
-        return (String(parts[1]), parts[2].uppercased())
+        guard let name, let r = name.range(of: "G1_") else { return nil }
+        let parts = name[r.upperBound...].split(separator: "_")
+        guard parts.count >= 2, ["L", "R"].contains(parts[1].uppercased()) else { return nil }
+        return (String(parts[0]), parts[1].uppercased())
     }
 
     static func heartbeat(seq: UInt8) -> Data {
