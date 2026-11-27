@@ -100,16 +100,19 @@ struct Interpreter {
     var llm: LLMClient
     var native: String          // English name, e.g. "Czech"
 
-    func translate(_ text: String, lang: String, context: [String]) async throws -> String? {
+    func translate(_ text: String, lang: String, context: [String], background: String = "") async throws -> String? {
         let system = """
         You translate live speech into \(native) for subtitles in smart glasses. Return ONLY the \
-        \(native) translation – natural, concise, no quotes, no comments. If the transcript is \
-        garbled, translate the most likely meaning. If it is clearly not \(lang) speech or is \
-        meaningless noise, return exactly: -
+        \(native) translation – natural, concise, no quotes, no comments.
+        The text comes from automatic speech recognition: words can be misheard, split or missing \
+        punctuation, and a sentence may continue the previous one. Use the background and the \
+        earlier sentences to work out what the person really means (topic, names, places, numbers, \
+        regional words and slang) and translate that meaning. If it is clearly not \(lang) speech \
+        or is meaningless noise, return exactly: -
         """
-        var user = ""
+        var user = background.isEmpty ? "" : "Background:\n\(background)\n\n"
         if !context.isEmpty {
-            user += "Earlier sentences (context only, do not translate):\n" + context.suffix(4).joined(separator: "\n") + "\n\n"
+            user += "Earlier sentences (context only, do not translate):\n" + context.suffix(8).joined(separator: "\n") + "\n\n"
         }
         user += "Language: \(lang)\nTranslate into \(native):\n\(text)"
         let out = try await llm.chat(system: system, user: user, maxTokens: 300)
@@ -117,7 +120,7 @@ struct Interpreter {
         return out == "-" || out.isEmpty ? nil : out
     }
 
-    func replies(turn: String, lang: String, context: [String]) async throws -> [Reply] {
+    func replies(turn: String, lang: String, context: [String], background: String = "") async throws -> [Reply] {
         let system = """
         The user is a native \(native) speaker who does not speak \(lang). Someone has just spoken \
         to them in \(lang). Suggest 3 very short replies IN \(lang) that the user can read out loud:
@@ -130,7 +133,7 @@ struct Interpreter {
         and its meaning in \(native) (max 4 words – all three must fit on a tiny display).
         Return ONLY JSON: {"replies": [{"kind": "yes", "text": "...", "pron": "...", "meaning": "..."}, ...]}
         """
-        var user = ""
+        var user = background.isEmpty ? "" : "Background:\n\(background)\n\n"
         if !context.isEmpty { user += "Conversation so far:\n" + context.suffix(8).joined(separator: "\n") + "\n\n" }
         user += "They just said:\n\(turn)"
         let raw = try await llm.chat(system: system, user: user, maxTokens: 800)
@@ -148,7 +151,7 @@ struct Interpreter {
         return out
     }
 
-    func followups(turn: String, lang: String, context: [String], replies: [Reply]) async throws -> [[Reply]] {
+    func followups(turn: String, lang: String, context: [String], replies: [Reply], background: String = "") async throws -> [[Reply]] {
         let system = """
         The user is a native \(native) speaker talking with someone in \(lang), which the user does \
         not speak. The other person just said something and the user will answer with ONE of the \
@@ -161,7 +164,7 @@ struct Interpreter {
         conventions and the meaning in \(native) (max 4 words – they must fit on a tiny display).
         Return ONLY JSON: {"followups": [[{"text": "...", "pron": "...", "meaning": "..."}, ...3 items], ...one list per reply, in the same order]}
         """
-        var user = ""
+        var user = background.isEmpty ? "" : "Background:\n\(background)\n\n"
         if !context.isEmpty { user += "Conversation so far:\n" + context.suffix(8).joined(separator: "\n") + "\n\n" }
         user += "They just said:\n\(turn)\n\nThe user's possible replies:\n"
         user += replies.enumerated().map { "\($0.offset + 1). \($0.element.text)" }.joined(separator: "\n")
@@ -179,8 +182,21 @@ struct Interpreter {
         return out
     }
 
+    /// A short running summary of the conversation – gives every translation the bigger picture.
+    func summarize(previous: String, recent: [String]) async throws -> String {
+        let system = """
+        You keep a running summary of a live conversation for a translator. In at most 2 short \
+        sentences in English, state the setting, who the other person is (role, name if said), the \
+        topic and facts that matter later (names, places, numbers, prices, what was agreed). \
+        Return ONLY the summary.
+        """
+        var user = previous.isEmpty ? "" : "Previous summary:\n\(previous)\n\n"
+        user += "Latest lines (They = the other person, Me = the user):\n" + recent.joined(separator: "\n")
+        return try await llm.chat(system: system, user: user, maxTokens: 160)
+    }
+
     /// The user said something in their own language → how to say it in the conversation language.
-    func sayIt(_ text: String, lang: String, context: [String]) async throws -> Reply {
+    func sayIt(_ text: String, lang: String, context: [String], background: String = "") async throws -> Reply {
         let system = """
         The user is a native \(native) speaker talking with someone in \(lang), which the user does \
         not speak. Translate what the user wants to say into natural, simple, polite spoken \(lang) \
@@ -189,7 +205,7 @@ struct Interpreter {
         \(native) summary of the meaning (max 6 words).
         Return ONLY JSON: {"text": "...", "pron": "...", "meaning": "..."}
         """
-        var user = ""
+        var user = background.isEmpty ? "" : "Background:\n\(background)\n\n"
         if !context.isEmpty { user += "Conversation so far:\n" + context.suffix(6).joined(separator: "\n") + "\n\n" }
         user += "The user wants to say:\n\(text)"
         let raw = try await llm.chat(system: system, user: user, maxTokens: 600)

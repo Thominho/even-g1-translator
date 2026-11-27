@@ -56,6 +56,27 @@ struct SettingsView: View {
                     Text(settings.t("Automatic listens with both microphones and uses the one that hears the speaker better. Online recognition is more accurate in noise but needs internet."))
                 }
 
+                Section {
+                    TextField(settings.t("e.g. Czech couple on holiday in Paraguay"), text: $settings.aboutMe, axis: .vertical)
+                        .lineLimit(2...4)
+                } header: {
+                    Text(settings.t("About me"))
+                } footer: {
+                    Text(settings.t("Who you are and where you are. Translations and replies take it into account."))
+                }
+
+                Section {
+                    if settings.ownVoiceLevel > 0 {
+                        Label(settings.t("Your voice is learned – your own words are not translated."), systemImage: "checkmark.circle")
+                        Button(settings.t("Forget my voice"), role: .destructive) { settings.ownVoiceLevel = 0 }
+                    } else {
+                        Text(settings.t("Tap “Learn my voice” on the main screen and say a few words with the glasses on – then your own words are not translated."))
+                            .font(.footnote)
+                    }
+                } header: {
+                    Text(settings.t("My voice"))
+                }
+
                 Section(settings.t("Conversation")) {
                     Toggle(settings.t("Suggest replies"), isOn: $settings.replies)
                     Toggle(settings.t("Suggest questions to ask back"), isOn: $settings.followUps)

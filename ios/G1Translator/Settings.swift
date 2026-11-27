@@ -18,6 +18,10 @@ final class Settings: ObservableObject {
     @Published var micMode: String { didSet { d.set(micMode, forKey: "micMode") } }   // auto | glasses | phone
     @Published var onlineRecognition: Bool { didSet { d.set(onlineRecognition, forKey: "onlineRecognition") } }
     @Published var apiKey: String { didSet { Keychain.save(apiKey, for: "apiKey") } }
+    /// Who the user is / where – context for translations and replies.
+    @Published var aboutMe: String { didSet { d.set(aboutMe, forKey: "aboutMe") } }
+    /// The user's own voice on the glasses microphone (0 = not learned yet).
+    @Published var ownVoiceLevel: Double { didSet { d.set(ownVoiceLevel, forKey: "ownVoiceLevel") } }
 
     init() {
         let d = UserDefaults.standard
@@ -27,12 +31,14 @@ final class Settings: ObservableObject {
         model = d.string(forKey: "model") ?? ""
         replies = d.object(forKey: "replies") as? Bool ?? true
         followUps = d.object(forKey: "followUps") as? Bool ?? true
-        turnEnd = d.object(forKey: "turnEnd") as? Double ?? 1.5
+        turnEnd = d.object(forKey: "turnEnd") as? Double ?? 1.2
         charsPerLine = d.object(forKey: "charsPerLine") as? Double ?? 38
         micMode = d.string(forKey: "micMode") ?? "auto"
         onlineRecognition = d.object(forKey: "onlineRecognition") as? Bool ?? true
         appLanguage = d.string(forKey: "appLanguage") ?? "en"
         apiKey = Keychain.load("apiKey") ?? ""
+        aboutMe = d.string(forKey: "aboutMe") ?? ""
+        ownVoiceLevel = d.object(forKey: "ownVoiceLevel") as? Double ?? 0
     }
 
     /// App interface text in the chosen app language (English by default).

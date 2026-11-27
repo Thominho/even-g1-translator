@@ -30,6 +30,7 @@ final class TranslatorEngine: ObservableObject {
     @Published private(set) var screen = ""
     @Published private(set) var status = ""
     @Published private(set) var dictating = false
+    @Published private(set) var learningVoice = false
 
     let glasses: G1Glasses
     let listener = SpeechListener()
@@ -55,11 +56,25 @@ final class TranslatorEngine: ObservableObject {
     private var turnTimer: Task<Void, Never>?
     private var prefetch: (turn: String, task: Task<[Reply], Error>)?
     private var followups: Task<[[Reply]], Error>?
+    /// Draft translations started at short pauses, by exact text – reused when the sentence ends.
+    private var drafts: [String: Task<String?, Error>] = [:]
+    /// Running summary of the conversation (who, where, what about) – context for the AI.
+    private var summary = ""
+
+    /// What the AI should know besides the last sentences.
+    private var background: String {
+        var parts: [String] = []
+        if !settings.aboutMe.trimmingCharacters(in: .whitespaces).isEmpty { parts.append("About the user: \(settings.aboutMe)") }
+        if !summary.isEmpty { parts.append("Conversation so far: \(summary)") }
+        return parts.joined(separator: "\n")
+    }
 
     init(settings: Settings, glasses: G1Glasses) {
         self.settings = settings
         self.glasses = glasses
-        listener.onSentence = { [weak self] in self?.onSentence($0) }
+        listener.onSentence = { [weak self] text, level in self?.onSentence(text, level: level) }
+        listener.onStable = { [weak self] text, level in self?.onStable(text, level: level) }
+        listener.onOwnVoiceSample = { [weak self] level in self?.learnVoice(level, from: "say it") }
         listener.onPartial = { [weak self] _ in self?.speechActivity() }   // still talking → wait again
         listener.onDictation = { [weak self] text in Task { await self?.sayIt(text) } }
         glasses.onEvent = { [weak self] ev, side in self?.onEvent(ev, side: side) }
@@ -78,6 +93,8 @@ final class TranslatorEngine: ObservableObject {
             settings.model = def.id
         }
         guard settings.isConfigured else { status = "Add your API key and model in Settings."; return }
+        let key = settings.apiKey
+        Task.detached { _ = try? await LLMClient.listModels(apiKey: key) }   // opens the connection early
         guard await SpeechListener.requestPermissions() else {
             status = "Allow microphone and speech recognition in Settings."; return
         }
@@ -116,7 +133,9 @@ final class TranslatorEngine: ObservableObject {
 
     func newConversation() {
         turnOrig = []; turnTr = []; history = []; replies = []
-        mode = "reply"; headerShown = false
+        mode = "reply"; headerShown = false; summary = ""
+        for job in drafts.values { job.cancel() }
+        drafts = [:]
         prefetch?.task.cancel(); prefetch = nil
         followups?.cancel(); followups = nil
     }
@@ -129,31 +148,114 @@ final class TranslatorEngine: ObservableObject {
 
     // MARK: - Speech
 
-    private func onSentence(_ text: String) {
-        guard running, !paused else { return }
-        dlog("SENT \(short(text))")
+    // MARK: - The user's own voice
+
+    /// The glasses microphone sits next to the wearer's mouth: their own voice is much louder there.
+    private func isOwnVoice(_ level: Float?) -> Bool {
+        guard settings.ownVoiceLevel > 0, let level else { return false }
+        return Double(level) >= settings.ownVoiceLevel * 0.5
+    }
+
+    private func learnVoice(_ level: Float, from source: String) {
+        let old = settings.ownVoiceLevel
+        settings.ownVoiceLevel = old == 0 ? Double(level) : old * 0.7 + Double(level) * 0.3
+        dlog(String(format: "VOICE learned from %@: %.4f → %.4f", source, old, settings.ownVoiceLevel))
+    }
+
+    /// "Learn my voice": the user says a few words with the glasses on.
+    func learnMyVoice() async {
+        guard running, !paused, !learningVoice else { return }
+        guard glasses.isConnected, settings.mic != .phone else {
+            status = "Connect the glasses and use the glasses or automatic microphone."
+            return
+        }
+        learningVoice = true
+        cancelTurnTimer()
+        show(lang.t("calib"))
+        let level = await listener.measureVoice(seconds: 4)
+        learningVoice = false
+        if let level {
+            settings.ownVoiceLevel = Double(level)
+            dlog(String(format: "VOICE calibrated %.4f", level))
+            show("\(lang.t("calib_ok"))\n\(lang.t("listening"))")
+            status = ""
+        } else {
+            show(lang.t("listening"))
+            status = "I couldn't hear you – try again a little louder."
+        }
+    }
+
+    // MARK: - Speech
+
+    private func onSentence(_ text: String, level: Float?) {
+        guard running, !paused, !learningVoice else { return }
+        let own = isOwnVoice(level)
+        dlog("SENT \(short(text)) " + (level.map { String(format: "lvl %.4f", $0) } ?? "lvl –") + (own ? " ME" : ""))
         speechActivity()
         if Date().timeIntervalSince(lastSpeech) > 90 { newConversation() }
+        let draft = drafts.removeValue(forKey: text)
+        for job in drafts.values { job.cancel() }
+        drafts = [:]
 
         // the user read one of the suggestions aloud → don't translate it
         if let best = replies.max(by: { similarity($0.text, text) < similarity($1.text, text) }),
-           similarity(best.text, text) >= 0.6 {
+           similarity(best.text, text) >= (own ? 0.4 : 0.6) {
             dlog("USER SAID suggestion \(short(best.text))")
+            if let level, !own { learnVoice(level, from: "suggestion") }
+            draft?.cancel()
             Task { await userSaid(best) }
             return
         }
-        // the request starts right away (sentences are translated in parallel),
+        // the user's own voice (e.g. talking to someone next to them) → not the other person
+        if own {
+            dlog("ME – not translated")
+            draft?.cancel()
+            return
+        }
+        // the request starts right away (sentences are translated in parallel, or the draft is reused),
         // the results are shown in order
-        let context = history + pendingOrig.map { "They: \($0)" }
+        let context = contextLines + pendingOrig.map { "They: \($0)" }
         pendingOrig.append(text)
-        let interp = interpreter, l = convLang
+        let interp = interpreter, l = convLang, bg = background
         let started = Date()
-        let job = Task { try await interp.translate(text, lang: l, context: context) }
+        if draft != nil { dlog("draft reused") }
+        let job = draft ?? Task { try await interp.translate(text, lang: l, context: context, background: bg) }
         let previous = translateChain
         translateChain = Task {
             await previous?.value
             await self.applyTranslation(text, job: job, started: started)
         }
+    }
+
+    private var contextLines: [String] { Array(history.suffix(8)) }
+
+    /// A short pause mid-speech: translate what we have so far and show it as a draft.
+    private func onStable(_ text: String, level: Float?) {
+        guard running, !paused, !learningVoice, !dictating, text.count >= 4,
+              drafts[text] == nil, !isOwnVoice(level) else { return }
+        if replies.contains(where: { similarity($0.text, text) >= 0.45 }) { return }   // reading a suggestion
+        let context = contextLines + pendingOrig.map { "They: \($0)" }
+        let interp = interpreter, l = convLang, bg = background
+        let started = Date()
+        let job = Task { try await interp.translate(text, lang: l, context: context, background: bg) }
+        drafts[text] = job
+        Task {
+            guard let tr = try? await job.value else { return }   // nil = noise
+            // still being spoken (the final sentence will show it otherwise)
+            guard self.drafts[text] != nil, self.pendingOrig.isEmpty else { return }
+            dlog(String(format: "DRAFT %.1fs ", Date().timeIntervalSince(started)) + short(tr))
+            self.show(self.turnBody(adding: tr))
+            if self.settings.replies { self.startPrefetch(adding: text) }
+        }
+    }
+
+    /// The translated turn so far (with the language label at the start of a conversation).
+    private func turnBody(adding extra: String? = nil) -> String {
+        var body = (turnTr + (extra.map { [$0] } ?? [])).joined(separator: " ")
+        if !headerShown {
+            body = "[\(lang.name(settings.conversationLanguage).uppercased())]\n" + body
+        }
+        return body
     }
 
     private func applyTranslation(_ text: String, job: Task<String?, Error>, started: Date) async {
@@ -174,11 +276,8 @@ final class TranslatorEngine: ObservableObject {
         turnOrig.append(text)
         turnTr.append(tr)
         history.append("They: \(text) (\(tr))")
-        var body = turnTr.joined(separator: " ")
-        if !headerShown {
-            body = "[\(lang.name(settings.conversationLanguage).uppercased())]\n" + body
-            if turnTr.count == 1 { headerShown = true }
-        }
+        let body = turnBody()
+        if turnTr.count >= 1 { headerShown = true }
         show(body)
         status = ""
         if settings.replies { startPrefetch() }
@@ -214,15 +313,16 @@ final class TranslatorEngine: ObservableObject {
     }
 
     /// After every sentence, prepare replies in the background → shown instantly at the pause.
-    private func startPrefetch() {
-        let turn = turnOrig.joined(separator: " ")
+    private func startPrefetch(adding extra: String? = nil) {
+        let turn = (turnOrig + (extra.map { [$0] } ?? [])).joined(separator: " ")
+        if prefetch?.turn == turn { return }               // already being prepared (e.g. from the draft)
         prefetch?.task.cancel()
         let ctx = Array(history.dropLast(turnOrig.count))
-        let interp = interpreter, l = convLang
+        let interp = interpreter, l = convLang, bg = background
         dlog("PREFETCH \(short(turn))")
         prefetch = (turn, Task {
             let t = Date()
-            let r = try await interp.replies(turn: turn, lang: l, context: ctx)
+            let r = try await interp.replies(turn: turn, lang: l, context: ctx, background: bg)
             dlog(String(format: "REPLIES ready %.1fs, %d", Date().timeIntervalSince(t), r.count))
             return r
         })
@@ -251,7 +351,7 @@ final class TranslatorEngine: ObservableObject {
         if result.isEmpty {
             // the prepared request failed or returned nothing usable → ask once more
             let ctx = Array(history.dropLast(turnOrig.count))
-            do { result = try await interpreter.replies(turn: turn, lang: convLang, context: ctx) }
+            do { result = try await interpreter.replies(turn: turn, lang: convLang, context: ctx, background: background) }
             catch { failure = error }
             guard !Task.isCancelled, turn == turnOrig.joined(separator: " ") else { return }
         }
@@ -265,8 +365,19 @@ final class TranslatorEngine: ObservableObject {
         turnOrig = []; turnTr = []; prefetch = nil
         show(renderAll())
         if settings.followUps {
-            let interp = interpreter, l = convLang, ctx = Array(history.suffix(8))
-            followups = Task { try await interp.followups(turn: turn, lang: l, context: ctx, replies: result) }
+            let interp = interpreter, l = convLang, ctx = Array(history.suffix(8)), bg = background
+            followups = Task { try await interp.followups(turn: turn, lang: l, context: ctx, replies: result, background: bg) }
+        }
+        updateSummary()
+    }
+
+    /// Keeps a 1–2 sentence summary of the conversation for later translations (in the background).
+    private func updateSummary() {
+        let interp = interpreter, recent = Array(history.suffix(10)), old = summary
+        Task {
+            guard let s = try? await interp.summarize(previous: old, recent: recent), !s.isEmpty else { return }
+            self.summary = s
+            dlog("SUMMARY \(short(s, 90))")
         }
     }
 
@@ -327,7 +438,7 @@ final class TranslatorEngine: ObservableObject {
     private func sayIt(_ text: String) async {
         show("\(lang.t("say")): \(text)\n…")
         do {
-            let r = try await interpreter.sayIt(text, lang: convLang, context: history)
+            let r = try await interpreter.sayIt(text, lang: convLang, context: history, background: background)
             replies = [r]; mode = "say"
             followups?.cancel(); followups = nil
             show("\(lang.t("say")): \(r.meaning)\n> \(r.pron.isEmpty ? r.text : r.pron)")

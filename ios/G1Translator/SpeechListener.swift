@@ -19,7 +19,15 @@ final class SpeechListener: ObservableObject {
     @Published private(set) var activeSource: MicSource = .phone
 
     var onPartial: ((String) -> Void)?
-    var onSentence: ((String) -> Void)?
+    /// A finished sentence + loudness of the glasses microphone while it was spoken (nil = no glasses audio).
+    var onSentence: ((String, Float?) -> Void)?
+    /// The words haven't changed for a moment (a short pause) – good time for a draft translation.
+    var onStable: ((String, Float?) -> Void)?
+    /// Loudness of the user's own voice, measured while dictating ("say it in my language").
+    var onOwnVoiceSample: ((Float) -> Void)?
+    /// Glasses-microphone loudness of speech frames in the current sentence (raw, before gain).
+    private var glassesVoice: [Float] = []
+    private var calibration: [Float]?
     /// What the user said in their own language while dictating.
     var onDictation: ((String) -> Void)?
     private(set) var dictating = false
@@ -113,8 +121,9 @@ final class SpeechListener: ObservableObject {
         sentenceTimer?.cancel()
         let pending = current.trimmingCharacters(in: .whitespacesAndNewlines)
         task?.cancel(); request?.endAudio()
-        if !pending.isEmpty { onSentence?(pending) }
+        if !pending.isEmpty { onSentence?(pending, voiceLevel()) }
         dictating = true
+        glassesVoice = []
         recognizer = rec
         startRecognition()
     }
@@ -130,6 +139,7 @@ final class SpeechListener: ObservableObject {
     private func finishDictation() {
         guard dictating else { return }
         let text = current.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !text.isEmpty, let lvl = voiceLevel() { onOwnVoiceSample?(lvl) }
         dictating = false
         task?.cancel(); request?.endAudio()
         recognizer = SFSpeechRecognizer(locale: Locale(identifier: conversationLocale))
@@ -165,6 +175,11 @@ final class SpeechListener: ObservableObject {
         let isSpeech = rms > s.noise * 3 && rms > 0.004
         if isSpeech { s.speech = s.speech * 0.95 + rms * 0.05 }
         stats[source] = s
+        if source == .glasses, isSpeech {
+            glassesVoice.append(rms)
+            if glassesVoice.count > 3000 { glassesVoice.removeFirst(1000) }
+            calibration?.append(rms)
+        }
 
         if mode == .auto { chooseSource() }
         guard source == activeSource else { return }
@@ -246,6 +261,7 @@ final class SpeechListener: ObservableObject {
         req.addsPunctuation = true
         request = req
         current = ""
+        if !dictating { glassesVoice = [] }
         task = recognizer.recognitionTask(with: req, resultHandler: Self.makeResultHandler(self, gen: gen))
     }
 
@@ -314,9 +330,30 @@ final class SpeechListener: ObservableObject {
         sentenceTimer = Task {
             // the recogniser already put a full stop / question mark there → don't wait as long
             let done = current.last.map { ".?!¿¡。".contains($0) } ?? false
-            try? await Task.sleep(for: .seconds(done ? 0.5 : sentencePause))
+            let pause = done ? 0.5 : sentencePause
+            try? await Task.sleep(for: .seconds(0.35))
+            guard !Task.isCancelled else { return }
+            if !dictating { onStable?(current.trimmingCharacters(in: .whitespacesAndNewlines), voiceLevel()) }
+            try? await Task.sleep(for: .seconds(pause - 0.35))
             if !Task.isCancelled { finishSentence() }
         }
+    }
+
+    /// Typical loudness of speech on the glasses microphone (80th percentile), nil if too little.
+    private static func level(_ values: [Float]) -> Float? {
+        guard values.count >= 15 else { return nil }
+        let sorted = values.sorted()
+        return sorted[Int(Double(sorted.count - 1) * 0.8)]
+    }
+    func voiceLevel() -> Float? { Self.level(glassesVoice) }
+
+    /// Measures the user's own voice on the glasses microphone for a few seconds.
+    func measureVoice(seconds: Double) async -> Float? {
+        calibration = []
+        try? await Task.sleep(for: .seconds(seconds))
+        let lvl = Self.level(calibration ?? [])
+        calibration = nil
+        return lvl
     }
 
     /// Emit the current sentence and start a fresh recognition request.
@@ -326,7 +363,8 @@ final class SpeechListener: ObservableObject {
         task?.cancel()
         request?.endAudio()
         guard running else { return }
+        let lvl = voiceLevel()
         startRecognition()
-        if !text.isEmpty { onSentence?(text) }
+        if !text.isEmpty { onSentence?(text, lvl) }
     }
 }

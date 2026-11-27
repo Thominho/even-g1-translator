@@ -105,6 +105,14 @@ struct ContentView: View {
                     HStack {
                         Button(settings.t(engine.paused ? "Resume" : "Pause")) { engine.togglePause() }
                         Spacer()
+                        Button {
+                            Task { await engine.learnMyVoice() }
+                        } label: {
+                            Label(settings.t("Learn my voice"),
+                                  systemImage: settings.ownVoiceLevel > 0 ? "checkmark.circle" : "person.wave.2")
+                        }
+                        .disabled(engine.learningVoice)
+                        Spacer()
                         Button(settings.t("New conversation")) { engine.newConversation() }
                     }
                     .font(.subheadline)
