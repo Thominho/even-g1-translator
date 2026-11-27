@@ -1,5 +1,11 @@
 import Foundation
 
+/// Reply suggestions + a few words on what they answer.
+struct ReplySet {
+    var gist: String
+    var items: [Reply]
+}
+
 struct Reply: Equatable {
     var kind: String      // "yes" | "no" | "question" | "ask"
     var text: String      // in the speaker's language
@@ -120,26 +126,33 @@ struct Interpreter {
         return out == "-" || out.isEmpty ? nil : out
     }
 
-    func replies(turn: String, lang: String, context: [String], background: String = "") async throws -> [Reply] {
+    func replies(turn: String, lang: String, context: [String], background: String = "") async throws -> ReplySet {
         let system = """
         The user is a native \(native) speaker who does not speak \(lang). Someone has just spoken \
-        to them in \(lang). Suggest 3 very short replies IN \(lang) that the user can read out loud:
+        to them in \(lang) – possibly several sentences or several questions at once. Suggest 3 short \
+        replies IN \(lang) that the user can read out loud:
         1. "yes" – positive / agreement / thanks (whatever fits),
         2. "no" – negative / polite refusal,
         3. "question" – a follow-up question on the topic, OR a request to repeat more slowly if \
         the speech made no sense.
-        Each reply max 5 words, simple vocabulary. For each add a pronunciation guide written with \
-        \(native) spelling conventions, so a \(native) speaker reading it naturally sounds right, \
-        and its meaning in \(native) (all three must fit on a tiny display).
+        If they asked several things, every reply must answer ALL of them briefly in one go \
+        (e.g. "Gladly! I finish at five."). Max 8 words per reply, simple vocabulary.
+        For each add a pronunciation guide written with \(native) spelling conventions, so a \(native) \
+        speaker reading it naturally sounds right, and its meaning in \(native).
         Replies must be natural, polite things a real person would say in this situation.
-        The "meaning" must sound like a native \(native) speaker would naturally say the same thing in this situation – idiomatic and correct, never a word-for-word calque (e.g. Spanish "¿Qué tal el día?" is "How's your day going?", not "How is the day?"). Short (up to 5 words), no full stop at the end.
-        Return ONLY JSON: {"replies": [{"kind": "yes", "text": "...", "pron": "...", "meaning": "..."}, ...]}
+        The "meaning" must sound like a native \(native) speaker would naturally say the same thing in \
+        this situation – idiomatic and correct, never a word-for-word calque (e.g. Spanish \
+        "¿Qué tal el día?" is "How's your day going?", not "How is the day?"). Up to 6 words, no full stop.
+        Also give "gist": what they said or asked, in natural \(native), max 7 words \
+        (e.g. "Beer with us? When do you finish work?"), so the user knows what the replies answer.
+        Return ONLY JSON: {"gist": "...", "replies": [{"kind": "yes", "text": "...", "pron": "...", "meaning": "..."}, ...]}
         """
         var user = background.isEmpty ? "" : "Background:\n\(background)\n\n"
         if !context.isEmpty { user += "Conversation so far:\n" + context.suffix(8).joined(separator: "\n") + "\n\n" }
         user += "They just said:\n\(turn)"
-        let raw = try await llm.chat(system: system, user: user, maxTokens: 800)
-        let items = Self.items(Self.parse(raw), key: "replies")
+        let raw = try await llm.chat(system: system, user: user, maxTokens: 900)
+        let parsed = Self.parse(raw)
+        let items = Self.items(parsed, key: "replies")
         let kinds = ["yes", "no", "question"]
         let out: [Reply] = items.prefix(3).enumerated().compactMap { i, d in
             guard let r = Self.reply(d, kind: nil) else { return nil }
@@ -150,7 +163,9 @@ struct Interpreter {
             await dlog("REPLIES RAW len \(raw.count) START: " + String(flat.prefix(160)))
             await dlog("REPLIES RAW END: " + String(flat.suffix(160)))
         }
-        return out
+        let gist = ((parsed as? [String: Any])?["gist"] as? String ?? "")
+            .trimmingCharacters(in: CharacterSet.whitespaces.union(CharacterSet(charactersIn: ".")))
+        return ReplySet(gist: gist, items: out)
     }
 
     func followups(turn: String, lang: String, context: [String], replies: [Reply], background: String = "") async throws -> [[Reply]] {

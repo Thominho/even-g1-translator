@@ -54,7 +54,18 @@ final class TranslatorEngine: ObservableObject {
     private var translateChain: Task<Void, Never>?
     private var pendingOrig: [String] = []
     private var turnTimer: Task<Void, Never>?
-    private var prefetch: (turn: String, task: Task<[Reply], Error>)?
+    private var prefetch: (turn: String, task: Task<ReplySet, Error>)?
+    /// What the shown replies answer (short, in the user's language).
+    private var gist = ""
+    /// The turn the replies on screen belong to – they keep talking → the turn grows until the user answers.
+    private var repliesTurn = ""
+    private var repliesShownAt = Date.distantPast
+    /// Translation of the turn, to switch back to it with a tap.
+    private var lastTurnScreen = ""
+    private var showingTranslation = false
+    private var lastTranslationAt = Date.distantPast
+    private var lastTranslationWords = 0
+    private var lastHeard = ""
     private var followups: Task<[[Reply]], Error>?
     /// Draft translations started at short pauses, by exact text – reused when the sentence ends.
     private var drafts: [String: Task<String?, Error>] = [:]
@@ -134,6 +145,7 @@ final class TranslatorEngine: ObservableObject {
     func newConversation() {
         turnOrig = []; turnTr = []; history = []; replies = []
         mode = "reply"; headerShown = false; summary = ""
+        gist = ""; repliesTurn = ""; lastTurnScreen = ""
         for job in drafts.values { job.cancel() }
         drafts = [:]
         prefetch?.task.cancel(); prefetch = nil
@@ -190,6 +202,7 @@ final class TranslatorEngine: ObservableObject {
     private func onSentence(_ text: String, level: Float?) {
         guard running, !paused, !learningVoice else { return }
         let own = isOwnVoice(level)
+        if !own { lastHeard = text }
         dlog("SENT \(short(text)) " + (level.map { String(format: "lvl %.4f", $0) } ?? "lvl –") + (own ? " ME" : ""))
         speechActivity()
         if Date().timeIntervalSince(lastSpeech) > 90 { newConversation() }
@@ -209,6 +222,7 @@ final class TranslatorEngine: ObservableObject {
         // the user's own voice (e.g. talking to someone next to them) → not the other person
         if own {
             dlog("ME – not translated")
+            if !repliesTurn.isEmpty { startNewTurn() }      // the user answered in their own words
             draft?.cancel()
             return
         }
@@ -229,6 +243,13 @@ final class TranslatorEngine: ObservableObject {
 
     private var contextLines: [String] { Array(history.suffix(8)) }
 
+    /// The user answered (or it's been a while) → what they say next is a new turn.
+    private func startNewTurn() {
+        turnOrig = []; turnTr = []
+        repliesTurn = ""
+        prefetch?.task.cancel(); prefetch = nil
+    }
+
     /// A short pause mid-speech: translate what we have so far and show it as a draft.
     private func onStable(_ text: String, level: Float?) {
         guard running, !paused, !learningVoice, !dictating, text.count >= 4,
@@ -245,6 +266,8 @@ final class TranslatorEngine: ObservableObject {
             guard self.drafts[text] != nil, self.pendingOrig.isEmpty else { return }
             dlog(String(format: "DRAFT %.1fs ", Date().timeIntervalSince(started)) + short(tr))
             self.show(self.turnBody(adding: tr))
+            self.lastTranslationAt = Date()
+            self.lastTranslationWords = tr.split(separator: " ").count
             if self.settings.replies { self.startPrefetch(adding: text) }
         }
     }
@@ -270,6 +293,8 @@ final class TranslatorEngine: ObservableObject {
         }
         dlog(String(format: "TR %.1fs ", Date().timeIntervalSince(started)) + short(translated ?? "– (noise)"))
         guard let tr = translated else { return }      // noise / not the conversation language
+        // replies were on screen for a while and nobody answered → this is a new turn
+        if !repliesTurn.isEmpty, Date().timeIntervalSince(repliesShownAt) > 12 { startNewTurn() }
         lastSpeech = Date()
         replies = []; mode = "reply"
         followups?.cancel(); followups = nil
@@ -279,6 +304,8 @@ final class TranslatorEngine: ObservableObject {
         let body = turnBody()
         if turnTr.count >= 1 { headerShown = true }
         show(body)
+        lastTranslationAt = Date()
+        lastTranslationWords = tr.split(separator: " ").count
         status = ""
         if settings.replies { startPrefetch() }
     }
@@ -297,8 +324,10 @@ final class TranslatorEngine: ObservableObject {
 
     private func scheduleTurnEnd() {
         cancelTurnTimer()
+        // a question usually ends the turn; after a statement the speaker often goes on → wait a bit longer
+        let extra = lastHeard.hasSuffix("?") ? 0 : 0.6
         turnTimer = Task {
-            try? await Task.sleep(for: .seconds(settings.turnEnd))
+            try? await Task.sleep(for: .seconds(settings.turnEnd + extra))
             guard !Task.isCancelled else { return }
             // a voice still in the microphone → give it a moment, but noise must not block replies forever
             var waited = 0.0
@@ -323,7 +352,7 @@ final class TranslatorEngine: ObservableObject {
         prefetch = (turn, Task {
             let t = Date()
             let r = try await interp.replies(turn: turn, lang: l, context: ctx, background: bg)
-            dlog(String(format: "REPLIES ready %.1fs, %d", Date().timeIntervalSince(t), r.count))
+            dlog(String(format: "REPLIES ready %.1fs, %d ", Date().timeIntervalSince(t), r.items.count) + short(r.gist))
             return r
         })
     }
@@ -336,10 +365,11 @@ final class TranslatorEngine: ObservableObject {
             return
         }
         let turn = turnOrig.joined(separator: " ")
+        guard turn != repliesTurn else { return }          // these replies are already on screen
         if prefetch?.turn != turn { startPrefetch() }
         guard let pre = prefetch else { return }
 
-        var result: [Reply] = []
+        var result = ReplySet(gist: "", items: [])
         var failure: Error?
         do { result = try await pre.task.value } catch { failure = error; dlog("REPLIES ERROR \(error.localizedDescription)") }
         // they started speaking again → the next pause will bring replies for the whole turn
@@ -348,25 +378,36 @@ final class TranslatorEngine: ObservableObject {
             return
         }
 
-        if result.isEmpty {
+        if result.items.isEmpty {
             // the prepared request failed or returned nothing usable → ask once more
             let ctx = Array(history.dropLast(turnOrig.count))
             do { result = try await interpreter.replies(turn: turn, lang: convLang, context: ctx, background: background) }
             catch { failure = error }
             guard !Task.isCancelled, turn == turnOrig.joined(separator: " ") else { return }
         }
-        guard !result.isEmpty else {
+        guard !result.items.isEmpty else {
             dlog("NO REPLIES")
             if let failure, !(failure is CancellationError) { status = failure.localizedDescription }
             return
         }
 
-        replies = result; mode = "reply"
-        turnOrig = []; turnTr = []; prefetch = nil
+        // leave the translation on screen long enough to read it
+        let minRead = min(3.5, max(1.2, Double(lastTranslationWords) * 0.25))
+        let seen = Date().timeIntervalSince(lastTranslationAt)
+        if seen < minRead {
+            try? await Task.sleep(for: .seconds(minRead - seen))
+            guard !Task.isCancelled, turn == turnOrig.joined(separator: " ") else { return }
+        }
+
+        lastTurnScreen = turnBody()
+        replies = result.items; gist = result.gist; mode = "reply"
+        repliesTurn = turn; repliesShownAt = Date(); prefetch = nil
+        showingTranslation = false
         show(renderAll())
         if settings.followUps {
+            let items = result.items
             let interp = interpreter, l = convLang, ctx = Array(history.suffix(8)), bg = background
-            followups = Task { try await interp.followups(turn: turn, lang: l, context: ctx, replies: result, background: bg) }
+            followups = Task { try await interp.followups(turn: turn, lang: l, context: ctx, replies: items, background: bg) }
         }
         updateSummary()
     }
@@ -384,6 +425,7 @@ final class TranslatorEngine: ObservableObject {
     /// The user said a suggestion. After an answer, offer questions to ask back.
     private func userSaid(_ said: Reply) async {
         history.append("Me: \(said.text)")
+        startNewTurn()
         var questions: [Reply] = []
         if mode == "reply", let fu = followups, let idx = replies.firstIndex(of: said) {
             if let all = try? await fu.value, idx < all.count { questions = all[idx] }
@@ -402,20 +444,26 @@ final class TranslatorEngine: ObservableObject {
     /// If it would not fit on 5 lines, drop the header, then the meanings.
     private func renderAll() -> String {
         let signs = ["yes": "+", "no": "-", "question": "?", "ask": "?", "say": ">"]
-        func build(header: Bool, meaning: Bool) -> String {
-            var lines: [String] = header && mode == "ask" ? ["\(lang.t("ask")):"] : []
-            for r in replies {
+        func build(top: Bool, meaning: Bool, count: Int) -> String {
+            var lines: [String] = []
+            if top {
+                if mode == "ask" { lines.append("\(lang.t("ask")):") }
+                else if mode == "reply", !gist.isEmpty { lines.append("» \(gist)") }
+            }
+            for r in replies.prefix(count) {
                 let sign = signs[mode == "ask" ? "ask" : r.kind] ?? "*"
                 let say = r.pron.isEmpty ? r.text : r.pron
                 lines.append(meaning && !r.meaning.isEmpty ? "\(sign) \(r.meaning): \(say)" : "\(sign) \(say)")
             }
             return lines.joined(separator: "\n")
         }
-        for (h, m) in [(true, true), (false, true), (false, false)] {
-            let text = build(header: h, meaning: m)
+        // keep as much as fits on 5 lines: meanings matter most, then what it answers, then the 3rd reply
+        let n = replies.count
+        for (top, meaning, count) in [(true, true, n), (false, true, n), (true, true, 2), (false, true, 2), (false, false, n)] {
+            let text = build(top: top, meaning: meaning, count: count)
             if G1Protocol.fits(text, width: settings.charsPerLine) { return text }
         }
-        return build(header: false, meaning: false)
+        return build(top: false, meaning: false, count: n)
     }
 
     // MARK: - Say it in my language
@@ -464,8 +512,13 @@ final class TranslatorEngine: ObservableObject {
             startSay()
         case .longPressRelease:
             stopSay()
+        case .singleTap:
+            // switch between what they said and the replies
+            guard !replies.isEmpty, mode == "reply", !lastTurnScreen.isEmpty else { break }
+            showingTranslation.toggle()
+            show(showingTranslation ? lastTurnScreen : renderAll())
         case .headUp:
-            if !replies.isEmpty { show(renderAll()) }
+            if !replies.isEmpty { showingTranslation = false; show(renderAll()) }
         default: break
         }
     }
