@@ -1,6 +1,25 @@
 import Foundation
 import UIKit
 
+/// Timestamped event log – shown in the app (and in the Xcode console) to find delays.
+@MainActor
+final class DebugLog: ObservableObject {
+    static let shared = DebugLog()
+    @Published private(set) var lines: [String] = []
+    private let t0 = Date()
+    func add(_ s: String) {
+        let line = String(format: "%6.1f ", Date().timeIntervalSince(t0)) + s
+        print("G1T " + line)
+        lines.append(line)
+        if lines.count > 80 { lines.removeFirst(lines.count - 80) }
+    }
+}
+@MainActor func dlog(_ s: String) { DebugLog.shared.add(s) }
+private func short(_ s: String, _ n: Int = 40) -> String {
+    let one = s.replacingOccurrences(of: "\n", with: " / ")
+    return one.count > n ? String(one.prefix(n)) + "…" : one
+}
+
 /// The whole hands-free flow:
 /// they speak → live translation → they stop → all 3 replies on one screen →
 /// you read one aloud → questions to ask back → they answer → …
@@ -32,6 +51,7 @@ final class TranslatorEngine: ObservableObject {
     private var headerShown = false
     private var lastSpeech = Date.distantPast
     private var translateChain: Task<Void, Never>?
+    private var pendingOrig: [String] = []
     private var turnTimer: Task<Void, Never>?
     private var prefetch: (turn: String, task: Task<[Reply], Error>)?
     private var followups: Task<[[Reply]], Error>?
@@ -102,6 +122,7 @@ final class TranslatorEngine: ObservableObject {
     }
 
     private func show(_ text: String) {
+        dlog("SHOW \(short(text, 60))")
         screen = G1Protocol.tail(text, width: settings.charsPerLine)
         glasses.show(text)
     }
@@ -110,32 +131,42 @@ final class TranslatorEngine: ObservableObject {
 
     private func onSentence(_ text: String) {
         guard running, !paused else { return }
+        dlog("SENT \(short(text))")
         speechActivity()
         if Date().timeIntervalSince(lastSpeech) > 90 { newConversation() }
 
         // the user read one of the suggestions aloud → don't translate it
         if let best = replies.max(by: { similarity($0.text, text) < similarity($1.text, text) }),
            similarity(best.text, text) >= 0.6 {
+            dlog("USER SAID suggestion \(short(best.text))")
             Task { await userSaid(best) }
             return
         }
-        // translate in order, one sentence after another
+        // the request starts right away (sentences are translated in parallel),
+        // the results are shown in order
+        let context = history + pendingOrig.map { "They: \($0)" }
+        pendingOrig.append(text)
+        let interp = interpreter, l = convLang
+        let started = Date()
+        let job = Task { try await interp.translate(text, lang: l, context: context) }
         let previous = translateChain
         translateChain = Task {
             await previous?.value
-            await self.translateSentence(text)
+            await self.applyTranslation(text, job: job, started: started)
         }
     }
 
-    private func translateSentence(_ text: String) async {
-        let context = history
+    private func applyTranslation(_ text: String, job: Task<String?, Error>, started: Date) async {
+        defer { if let i = pendingOrig.firstIndex(of: text) { pendingOrig.remove(at: i) } }
         let translated: String?
         do {
-            translated = try await interpreter.translate(text, lang: convLang, context: context)
+            translated = try await job.value
         } catch {
+            dlog("TRANSLATE ERROR \(error.localizedDescription)")
             status = error.localizedDescription
             return
         }
+        dlog(String(format: "TR %.1fs ", Date().timeIntervalSince(started)) + short(translated ?? "– (noise)"))
         guard let tr = translated else { return }      // noise / not the conversation language
         lastSpeech = Date()
         replies = []; mode = "reply"
@@ -177,6 +208,7 @@ final class TranslatorEngine: ObservableObject {
                 guard !Task.isCancelled else { return }
                 waited += 0.25
             }
+            dlog(waited > 0 ? String(format: "TURN END (waited %.1fs for silence)", waited) : "TURN END")
             await turnEnded()
         }
     }
@@ -187,22 +219,34 @@ final class TranslatorEngine: ObservableObject {
         prefetch?.task.cancel()
         let ctx = Array(history.dropLast(turnOrig.count))
         let interp = interpreter, l = convLang
-        prefetch = (turn, Task { try await interp.replies(turn: turn, lang: l, context: ctx) })
+        dlog("PREFETCH \(short(turn))")
+        prefetch = (turn, Task {
+            let t = Date()
+            let r = try await interp.replies(turn: turn, lang: l, context: ctx)
+            dlog(String(format: "REPLIES ready %.1fs, %d", Date().timeIntervalSince(t), r.count))
+            return r
+        })
     }
 
     private func turnEnded() async {
         // wait until the last sentence is translated (slow speakers: it may still be on its way)
         await translateChain?.value
-        guard !Task.isCancelled, settings.replies, !turnOrig.isEmpty else { return }
+        guard !Task.isCancelled, settings.replies, !turnOrig.isEmpty else {
+            dlog("turn end skipped (cancelled: \(Task.isCancelled), nothing translated: \(turnOrig.isEmpty))")
+            return
+        }
         let turn = turnOrig.joined(separator: " ")
         if prefetch?.turn != turn { startPrefetch() }
         guard let pre = prefetch else { return }
 
         var result: [Reply] = []
         var failure: Error?
-        do { result = try await pre.task.value } catch { failure = error }
+        do { result = try await pre.task.value } catch { failure = error; dlog("REPLIES ERROR \(error.localizedDescription)") }
         // they started speaking again → the next pause will bring replies for the whole turn
-        guard !Task.isCancelled, turn == turnOrig.joined(separator: " ") else { return }
+        guard !Task.isCancelled, turn == turnOrig.joined(separator: " ") else {
+            dlog("replies dropped – speech went on")
+            return
+        }
 
         if result.isEmpty {
             // the prepared request failed or returned nothing usable → ask once more
@@ -212,6 +256,7 @@ final class TranslatorEngine: ObservableObject {
             guard !Task.isCancelled, turn == turnOrig.joined(separator: " ") else { return }
         }
         guard !result.isEmpty else {
+            dlog("NO REPLIES")
             if let failure, !(failure is CancellationError) { status = failure.localizedDescription }
             return
         }

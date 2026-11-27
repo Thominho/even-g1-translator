@@ -291,9 +291,11 @@ final class SpeechListener: ObservableObject {
         }
         if let text, !text.isEmpty, text != current {
             current = text
+            dlog("~ \(text.suffix(30)) [\(activeSource == .glasses ? "G1" : "ph")]")
             onPartial?(text)
             scheduleSentenceEnd()
         }
+        if failed { dlog("STT error/end, restart") }
         if failed && current.isEmpty {
             // e.g. "no speech detected" – restart calmly instead of looping
             task?.cancel()
@@ -310,7 +312,9 @@ final class SpeechListener: ObservableObject {
     private func scheduleSentenceEnd() {
         sentenceTimer?.cancel()
         sentenceTimer = Task {
-            try? await Task.sleep(for: .seconds(sentencePause))
+            // the recogniser already put a full stop / question mark there → don't wait as long
+            let done = current.last.map { ".?!¿¡。".contains($0) } ?? false
+            try? await Task.sleep(for: .seconds(done ? 0.5 : sentencePause))
             if !Task.isCancelled { finishSentence() }
         }
     }

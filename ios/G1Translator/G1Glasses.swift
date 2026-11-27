@@ -118,10 +118,14 @@ final class G1Glasses: NSObject, ObservableObject {
 
     private func send(_ screen: String) async {
         seq &+= 1
+        let t = Date()
+        var acks = 0, total = 0
         for packet in G1Protocol.textPackets(screen, seq: seq) {
-            _ = await write(packet, side: "L", waitAck: true)   // left first…
-            _ = await write(packet, side: "R", waitAck: true)   // …then right
+            if await write(packet, side: "L", waitAck: true) { acks += 1 }   // left first…
+            if await write(packet, side: "R", waitAck: true) { acks += 1 }   // …then right
+            total += 2
         }
+        dlog(String(format: "BLE sent %.2fs, acks %d/%d", Date().timeIntervalSince(t), acks, total))
     }
 
     // MARK: - Writing with acknowledgement
@@ -147,7 +151,7 @@ final class G1Glasses: NSObject, ObservableObject {
             waiter.continuation = cont
             p.writeValue(data, for: ch, type: .withoutResponse)
             Task {
-                try? await Task.sleep(for: .milliseconds(1500))
+                try? await Task.sleep(for: .milliseconds(600))
                 waiter.finish(false)   // no ack in time – carry on
             }
         }

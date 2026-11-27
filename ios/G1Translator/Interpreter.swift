@@ -12,27 +12,46 @@ struct LLMClient {
     var apiKey: String
     var model: String
 
+    /// Models that refuse `thinking: disabled` (they always think) – learnt at runtime.
+    nonisolated(unsafe) private static var alwaysThinks: Set<String> = []
+
     func chat(system: String, user: String, maxTokens: Int = 400) async throws -> String {
         guard !apiKey.isEmpty, !model.isEmpty else { throw LLMError.notConfigured }
+        // Newer models think by default; thinking tokens count against max_tokens and add seconds.
+        // Short live replies don't need it → switch it off where the model allows that.
+        let thinkingOff = !Self.alwaysThinks.contains(model)
+        var body: [String: Any] = [
+            "model": model, "system": system,
+            "max_tokens": thinkingOff ? maxTokens : max(maxTokens * 4, 4000),
+            "messages": [["role": "user", "content": user]],
+        ]
+        if thinkingOff { body["thinking"] = ["type": "disabled"] }
+
         var req = URLRequest(url: URL(string: "https://api.anthropic.com/v1/messages")!)
         req.httpMethod = "POST"
         req.timeoutInterval = 30
         req.setValue("application/json", forHTTPHeaderField: "content-type")
         req.setValue(apiKey, forHTTPHeaderField: "x-api-key")
         req.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
-        let body: [String: Any] = [
-            "model": model, "max_tokens": maxTokens, "system": system,
-            "messages": [["role": "user", "content": user]],
-        ]
         req.httpBody = try JSONSerialization.data(withJSONObject: body)
         let (data, resp) = try await URLSession.shared.data(for: req)
         let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
         guard let http = resp as? HTTPURLResponse, http.statusCode == 200 else {
             let msg = ((json?["error"] as? [String: Any])?["message"] as? String) ?? "HTTP error"
+            if thinkingOff, (resp as? HTTPURLResponse)?.statusCode == 400, msg.lowercased().contains("thinking") {
+                Self.alwaysThinks.insert(model)             // this model can't switch thinking off
+                return try await chat(system: system, user: user, maxTokens: maxTokens)
+            }
             throw LLMError.api(msg)
         }
+        // read text blocks by type (thinking blocks may come first)
         let blocks = json?["content"] as? [[String: Any]] ?? []
-        return blocks.compactMap { $0["text"] as? String }.joined().trimmingCharacters(in: .whitespacesAndNewlines)
+        let text = blocks.filter { ($0["type"] as? String) == "text" }
+            .compactMap { $0["text"] as? String }.joined().trimmingCharacters(in: .whitespacesAndNewlines)
+        if text.isEmpty {
+            await dlog("API: no text, stop_reason \(json?["stop_reason"] as? String ?? "?")")
+        }
+        return text
     }
 
     struct Model: Identifiable, Hashable {
@@ -114,9 +133,19 @@ struct Interpreter {
         var user = ""
         if !context.isEmpty { user += "Conversation so far:\n" + context.suffix(8).joined(separator: "\n") + "\n\n" }
         user += "They just said:\n\(turn)"
-        let raw = try await llm.chat(system: system, user: user, maxTokens: 500)
-        let items = (Self.json(raw)?["replies"] as? [[String: Any]]) ?? []
-        return items.prefix(3).compactMap { Self.reply($0, kind: nil) }
+        let raw = try await llm.chat(system: system, user: user, maxTokens: 800)
+        let items = Self.items(Self.parse(raw), key: "replies")
+        let kinds = ["yes", "no", "question"]
+        let out: [Reply] = items.prefix(3).enumerated().compactMap { i, d in
+            guard let r = Self.reply(d, kind: nil) else { return nil }
+            return kinds.contains(r.kind) ? r : Reply(kind: kinds[i], text: r.text, pron: r.pron, meaning: r.meaning)
+        }
+        if out.isEmpty {
+            let flat = raw.replacingOccurrences(of: "\n", with: "⏎")
+            await dlog("REPLIES RAW len \(raw.count) START: " + String(flat.prefix(160)))
+            await dlog("REPLIES RAW END: " + String(flat.suffix(160)))
+        }
+        return out
     }
 
     func followups(turn: String, lang: String, context: [String], replies: [Reply]) async throws -> [[Reply]] {
@@ -136,8 +165,15 @@ struct Interpreter {
         if !context.isEmpty { user += "Conversation so far:\n" + context.suffix(8).joined(separator: "\n") + "\n\n" }
         user += "They just said:\n\(turn)\n\nThe user's possible replies:\n"
         user += replies.enumerated().map { "\($0.offset + 1). \($0.element.text)" }.joined(separator: "\n")
-        let raw = try await llm.chat(system: system, user: user, maxTokens: 900)
-        let groups = (Self.json(raw)?["followups"] as? [[[String: Any]]]) ?? []
+        let raw = try await llm.chat(system: system, user: user, maxTokens: 1200)
+        let parsed = Self.parse(raw)
+        var groups: [[[String: Any]]] = []
+        if let d = parsed as? [String: Any], let g = d["followups"] as? [[[String: Any]]] { groups = g }
+        else if let g = parsed as? [[[String: Any]]] { groups = g }
+        else if let d = parsed as? [String: Any], let g = d["followups"] as? [[String: Any]] {
+            groups = g.map { Self.items($0, key: "questions") }       // [{"questions": [...]}, ...]
+        }
+        if groups.isEmpty { await dlog("FOLLOWUPS RAW: " + String(raw.prefix(200)).replacingOccurrences(of: "\n", with: " ")) }
         var out = groups.prefix(replies.count).map { $0.prefix(3).compactMap { Self.reply($0, kind: "ask") } }
         while out.count < replies.count { out.append([]) }
         return out
@@ -156,23 +192,79 @@ struct Interpreter {
         var user = ""
         if !context.isEmpty { user += "Conversation so far:\n" + context.suffix(6).joined(separator: "\n") + "\n\n" }
         user += "The user wants to say:\n\(text)"
-        let raw = try await llm.chat(system: system, user: user, maxTokens: 400)
-        if let d = Self.json(raw), let r = Self.reply(d, kind: "say") { return r }
+        let raw = try await llm.chat(system: system, user: user, maxTokens: 600)
+        if let d = (Self.parse(raw) as? [String: Any]) ?? Self.items(Self.parse(raw), key: "").first,
+           let r = Self.reply(d, kind: "say") { return r }
+        await dlog("SAY RAW: " + String(raw.prefix(200)).replacingOccurrences(of: "\n", with: " "))
         throw LLMClient.LLMError.api("Could not translate")
     }
 
-    private static func json(_ raw: String) -> [String: Any]? {
-        guard let start = raw.firstIndex(of: "{"), let end = raw.lastIndex(of: "}"), start < end,
-              let data = String(raw[start...end]).data(using: .utf8) else { return nil }
-        return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+    /// Lenient JSON: code fences, text around the JSON, trailing commas, a top-level array.
+    static func parse(_ raw: String) -> Any? {
+        var t = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        t = t.replacingOccurrences(of: "```json", with: "").replacingOccurrences(of: "```", with: "")
+        var candidates = [t]
+        candidates += balancedBlocks(t)                     // each complete {...} / [...] on its own
+        if let a = t.firstIndex(of: "{"), let b = t.lastIndex(of: "}"), a < b { candidates.append(String(t[a...b])) }
+        if let a = t.firstIndex(of: "["), let b = t.lastIndex(of: "]"), a < b { candidates.append(String(t[a...b])) }
+        for c in candidates {
+            for text in [c, c.replacingOccurrences(of: #",\s*([}\]])"#, with: "$1", options: .regularExpression)] {
+                if let data = text.data(using: .utf8),
+                   let obj = try? JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed]),
+                   obj is [String: Any] || obj is [Any] {
+                    return obj
+                }
+            }
+        }
+        return nil
+    }
+
+    /// Top-level balanced JSON blocks in the text (strings and escapes respected), largest first.
+    static func balancedBlocks(_ t: String) -> [String] {
+        var out: [String] = []
+        let chars = Array(t)
+        var i = 0
+        while i < chars.count {
+            guard chars[i] == "{" || chars[i] == "[" else { i += 1; continue }
+            var depth = 0, inString = false, escaped = false, j = i
+            var end: Int?
+            while j < chars.count {
+                let c = chars[j]
+                if inString {
+                    if escaped { escaped = false } else if c == "\\" { escaped = true } else if c == "\"" { inString = false }
+                } else if c == "\"" { inString = true }
+                else if c == "{" || c == "[" { depth += 1 }
+                else if c == "}" || c == "]" { depth -= 1; if depth == 0 { end = j; break } }
+                j += 1
+            }
+            if let end { out.append(String(chars[i...end])); i = end + 1 } else { i += 1 }
+        }
+        return out.sorted { $0.count > $1.count }
+    }
+
+    /// The list of reply objects, whatever shape the model chose.
+    static func items(_ any: Any?, key: String) -> [[String: Any]] {
+        if let arr = any as? [[String: Any]] { return arr }
+        guard let d = any as? [String: Any] else { return [] }
+        if let arr = d[key] as? [[String: Any]] { return arr }
+        for v in d.values { if let arr = v as? [[String: Any]], !arr.isEmpty { return arr } }
+        // {"yes": {...}, "no": {...}, "question": {...}}
+        let byKind: [[String: Any]] = ["yes", "no", "question"].compactMap { k in
+            guard var x = d[k] as? [String: Any] else { return nil }
+            if x["kind"] == nil { x["kind"] = k }
+            return x
+        }
+        if !byKind.isEmpty { return byKind }
+        return d["text"] != nil ? [d] : []
     }
 
     private static func reply(_ d: [String: Any], kind: String?) -> Reply? {
-        guard let text = d["text"] as? String, !text.isEmpty else { return nil }
+        let keys = ["text", "reply", "phrase", "answer", "question", "target", "translation"]
+        guard let text = keys.lazy.compactMap({ d[$0] as? String }).first(where: { !$0.isEmpty }) else { return nil }
         let k = kind ?? ((d["kind"] as? String)?.lowercased() ?? "")
         return Reply(kind: k, text: text.trimmingCharacters(in: .whitespaces),
-                     pron: (d["pron"] as? String ?? "").trimmingCharacters(in: .whitespaces),
-                     meaning: (d["meaning"] as? String ?? "").trimmingCharacters(in: .whitespaces))
+                     pron: ((d["pron"] ?? d["pronunciation"]) as? String ?? "").trimmingCharacters(in: .whitespaces),
+                     meaning: ((d["meaning"] ?? d["translation_native"]) as? String ?? "").trimmingCharacters(in: .whitespaces))
     }
 }
 

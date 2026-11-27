@@ -33,6 +33,7 @@ struct ContentView: View {
     @EnvironmentObject var listener: SpeechListener
     @State private var showSettings = false
 
+    @ObservedObject private var log = DebugLog.shared
     private let green = Color(red: 0.24, green: 1.0, blue: 0.56)
 
     var body: some View {
@@ -58,6 +59,22 @@ struct ContentView: View {
                 if !engine.status.isEmpty {
                     Text(settings.t(engine.status)).font(.footnote).foregroundStyle(.orange)
                 }
+
+                DisclosureGroup("Log") {
+                    ScrollViewReader { proxy in
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 1) {
+                                ForEach(Array(log.lines.enumerated()), id: \.offset) { i, line in
+                                    Text(line).font(.system(size: 10, design: .monospaced)).id(i)
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .frame(height: 180)
+                        .onChange(of: log.lines.count) { proxy.scrollTo(log.lines.count - 1, anchor: .bottom) }
+                    }
+                }
+                .font(.footnote)
 
                 Text("\(settings.localeName(settings.speechLocale)) → \(settings.languageName(settings.nativeLanguage))")
                     .font(.subheadline).foregroundStyle(.secondary)

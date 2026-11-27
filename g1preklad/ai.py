@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import re
+import urllib.error
 import urllib.request
 import uuid
 import wave
@@ -141,12 +142,27 @@ class AnthropicLLM:
             raise SystemExit("V config.toml chybí [llm] model (ID modelu podle dokumentace poskytovatele).")
         self.model, self.key = model, _env(api_key_env)
 
+    _always_thinks: set[str] = set()
+
     def _run(self, system: str, user: str, max_tokens: int) -> str:
-        r = _post_json("https://api.anthropic.com/v1/messages", {
-            "model": self.model, "max_tokens": max_tokens, "system": system,
-            "messages": [{"role": "user", "content": user}]},
-            {"x-api-key": self.key, "anthropic-version": "2023-06-01"})
-        return "".join(b.get("text", "") for b in r.get("content", [])).strip()
+        # newer models think by default (slower, and thinking eats max_tokens) → off where allowed
+        off = self.model not in self._always_thinks
+        body = {"model": self.model, "system": system,
+                "max_tokens": max_tokens if off else max(max_tokens * 4, 4000),
+                "messages": [{"role": "user", "content": user}]}
+        if off:
+            body["thinking"] = {"type": "disabled"}
+        try:
+            r = _post_json("https://api.anthropic.com/v1/messages", body,
+                           {"x-api-key": self.key, "anthropic-version": "2023-06-01"})
+        except urllib.error.HTTPError as e:
+            msg = e.read().decode("utf-8", "replace")
+            if off and e.code == 400 and "thinking" in msg.lower():
+                self._always_thinks.add(self.model)
+                return self._run(system, user, max_tokens)
+            raise RuntimeError(f"Anthropic API {e.code}: {msg[:300]}") from e
+        return "".join(b.get("text", "") for b in r.get("content", [])
+                       if b.get("type", "text") == "text").strip()
 
     async def chat(self, system: str, user: str, max_tokens: int = 400) -> str:
         return await asyncio.to_thread(self._run, system, user, max_tokens)
