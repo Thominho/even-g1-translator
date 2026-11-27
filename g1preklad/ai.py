@@ -222,7 +222,8 @@ REPLY_SYS = (
     "the speech made no sense.\n"
     "Each reply max 5 words, simple vocabulary. For each add a pronunciation guide written with "
     "{native} spelling conventions, so a {native} speaker reading it naturally sounds right, and "
-    "its meaning in {native} (max 4 words – all three must fit on a tiny display).\n"
+    "its meaning in {native} (all three must fit on a tiny display). Replies must be natural, polite things a real person would say here.\n"
+    "The \"meaning\" must sound like a native {native} speaker would naturally say the same thing in this situation – idiomatic and correct, never a word-for-word calque (e.g. Spanish \"¿Qué tal el día?\" is \"How's your day going?\", not \"How is the day?\"). Short (up to 5 words), no full stop at the end.\n"
     "Return ONLY JSON: {{\"replies\": [{{\"kind\": \"yes\", \"text\": \"...\", \"pron\": \"...\", "
     "\"meaning\": \"...\"}}, ...]}}")
 
@@ -236,7 +237,8 @@ FOLLOWUP_SYS = (
     "otherwise a natural reaction question,\n"
     "2.–3. other sensible, friendly questions on the topic.\n"
     "Each max 5 words, simple vocabulary, with a pronunciation guide in {native} spelling "
-    "conventions and the meaning in {native} (max 4 words – they must fit on a tiny display).\n"
+    "conventions and the meaning in {native} (they must fit on a tiny display). Questions must be natural and make sense in this conversation.\n"
+    "The \"meaning\" must sound like a native {native} speaker would naturally say the same thing in this situation – idiomatic and correct, never a word-for-word calque (e.g. Spanish \"¿Qué tal el día?\" is \"How's your day going?\", not \"How is the day?\"). Short (up to 5 words), no full stop at the end.\n"
     "Return ONLY JSON: {{\"followups\": [[{{\"text\": \"...\", \"pron\": \"...\", \"meaning\": \"...\"}}, "
     "...3 items], ...one list per reply, in the same order]}}")
 

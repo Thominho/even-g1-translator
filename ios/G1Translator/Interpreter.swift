@@ -130,7 +130,9 @@ struct Interpreter {
         the speech made no sense.
         Each reply max 5 words, simple vocabulary. For each add a pronunciation guide written with \
         \(native) spelling conventions, so a \(native) speaker reading it naturally sounds right, \
-        and its meaning in \(native) (max 4 words – all three must fit on a tiny display).
+        and its meaning in \(native) (all three must fit on a tiny display).
+        Replies must be natural, polite things a real person would say in this situation.
+        The "meaning" must sound like a native \(native) speaker would naturally say the same thing in this situation – idiomatic and correct, never a word-for-word calque (e.g. Spanish "¿Qué tal el día?" is "How's your day going?", not "How is the day?"). Short (up to 5 words), no full stop at the end.
         Return ONLY JSON: {"replies": [{"kind": "yes", "text": "...", "pron": "...", "meaning": "..."}, ...]}
         """
         var user = background.isEmpty ? "" : "Background:\n\(background)\n\n"
@@ -161,7 +163,10 @@ struct Interpreter {
         you?'); otherwise a natural reaction question,
         2.–3. other sensible, friendly questions on the topic.
         Each max 5 words, simple vocabulary, with a pronunciation guide in \(native) spelling \
-        conventions and the meaning in \(native) (max 4 words – they must fit on a tiny display).
+        conventions and the meaning in \(native) (they must fit on a tiny display).
+        Questions must be natural and make sense in this conversation – what a friendly person \
+        would really ask next.
+        The "meaning" must sound like a native \(native) speaker would naturally say the same thing in this situation – idiomatic and correct, never a word-for-word calque (e.g. Spanish "¿Qué tal el día?" is "How's your day going?", not "How is the day?"). Short (up to 5 words), no full stop at the end.
         Return ONLY JSON: {"followups": [[{"text": "...", "pron": "...", "meaning": "..."}, ...3 items], ...one list per reply, in the same order]}
         """
         var user = background.isEmpty ? "" : "Background:\n\(background)\n\n"
@@ -202,7 +207,7 @@ struct Interpreter {
         not speak. Translate what the user wants to say into natural, simple, polite spoken \(lang) \
         (short sentences, fitting the conversation). Add a pronunciation guide written with \(native) \
         spelling conventions so a \(native) speaker reading it naturally sounds right, and a very short \
-        \(native) summary of the meaning (max 6 words).
+        \(native) summary of the meaning (max 6 words, natural \(native), no full stop).
         Return ONLY JSON: {"text": "...", "pron": "...", "meaning": "..."}
         """
         var user = background.isEmpty ? "" : "Background:\n\(background)\n\n"
@@ -280,7 +285,8 @@ struct Interpreter {
         let k = kind ?? ((d["kind"] as? String)?.lowercased() ?? "")
         return Reply(kind: k, text: text.trimmingCharacters(in: .whitespaces),
                      pron: ((d["pron"] ?? d["pronunciation"]) as? String ?? "").trimmingCharacters(in: .whitespaces),
-                     meaning: ((d["meaning"] ?? d["translation_native"]) as? String ?? "").trimmingCharacters(in: .whitespaces))
+                     meaning: ((d["meaning"] ?? d["translation_native"]) as? String ?? "")
+                        .trimmingCharacters(in: CharacterSet.whitespaces.union(CharacterSet(charactersIn: ".!。"))))
     }
 }
 
