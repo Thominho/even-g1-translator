@@ -121,9 +121,16 @@ final class G1Glasses: NSObject, ObservableObject {
                 while let next = self.pending {
                     self.pending = nil
                     switch next {
-                    case .text(let t): await self.send(t)
+                    case .text(let t):
+                        if self.imageOnScreen { await self.leaveImage() }
+                        await self.send(t)
                     case .image(let bmp, let fallback):
-                        if await !self.sendImage(bmp) { await self.send(fallback) }
+                        if await self.sendImage(bmp) {
+                            self.imageOnScreen = true
+                        } else {
+                            if self.imageOnScreen { await self.leaveImage() }
+                            await self.send(fallback)
+                        }
                     }
                 }
                 self.sendQueue = nil
@@ -131,7 +138,26 @@ final class G1Glasses: NSObject, ObservableObject {
         }
     }
 
+    /// Back from the picture to the text screen: exit (0x18) clears it; the microphone is switched on again
+    /// right away in case leaving the screen turned it off.
+    private func leaveImage() async {
+        let t = Date()
+        _ = await write(Data([0x18]), side: "L", waitAck: true, timeoutMs: 800)
+        _ = await write(Data([0x18]), side: "R", waitAck: true, timeoutMs: 800)
+        imageOnScreen = false
+        leftImageAt = Date()
+        if wantMic {
+            lastAudioAt = Date()
+            await write(Data([G1Protocol.cmdMic, 1]), side: "R", waitAck: true)
+        }
+        dlog(String(format: "BLE left picture %.2fs", Date().timeIntervalSince(t)))
+    }
+
     /// Picture upload as in the official demo: 0x15 packets (address in the first one), 0x20 end, 0x16 CRC.
+    /// A picture stays under later text (text is drawn in a black box over it) → leave the picture first.
+    private var imageOnScreen = false
+    private var leftImageAt = Date.distantPast
+
     /// Pause between picture packets – as short as the glasses take (learnt: slower after a failed upload).
     private var imagePacing = 3
 
@@ -270,6 +296,8 @@ final class G1Glasses: NSObject, ObservableObject {
         if first == G1Protocol.cmdEvent, data.count >= 2 {
             if var ev = G1Protocol.Event(rawValue: data[1]) {
                 if ev == .tripleTap2 { ev = .tripleTap }
+                // "exit to dashboard" (same code as a double tap) caused by our own exit command
+                if ev == .doubleTap, Date().timeIntervalSince(leftImageAt) < 1.5 { return }
                 onEvent?(ev, side)
             }
             return
@@ -360,6 +388,7 @@ extension G1Glasses: CBCentralManagerDelegate, CBPeripheralDelegate {
         MainActor.assumeIsolated {
             guard let side = side(of: peripheral) else { return }
             writeChars[side] = nil
+            imageOnScreen = false
             if wantConnect {
                 state = .connecting
                 central.connect(peripheral, options: nil)   // reconnect automatically
