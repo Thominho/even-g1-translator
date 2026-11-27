@@ -104,6 +104,11 @@ class Translator:
             except Exception as e:
                 log.exception("chyba při zpracování")
                 await self.g.show(f"{self.L.t('error')}: {e}")
+            finally:
+                # a segment dropped as noise must not leave the turn without replies
+                if (self.turn_orig and self.queue.empty() and not self.replies
+                        and (self._turn_timer is None or self._turn_timer.done())):
+                    self._schedule_turn_end()
 
     # --------------------------------------------------------------- logika
     async def handle_segment(self, pcm: bytes) -> None:

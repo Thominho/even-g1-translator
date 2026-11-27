@@ -25,7 +25,7 @@ final class SpeechListener: ObservableObject {
     private(set) var dictating = false
     private var conversationLocale = ""
 
-    var sentencePause: TimeInterval = 0.8
+    var sentencePause: TimeInterval = 1.0
     private(set) var lastVoiceAt = Date.distantPast
     var isSpeaking: Bool { Date().timeIntervalSince(lastVoiceAt) < 0.35 }
 

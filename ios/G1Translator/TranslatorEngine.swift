@@ -40,7 +40,7 @@ final class TranslatorEngine: ObservableObject {
         self.settings = settings
         self.glasses = glasses
         listener.onSentence = { [weak self] in self?.onSentence($0) }
-        listener.onPartial = { [weak self] _ in self?.cancelTurnTimer() }   // still talking
+        listener.onPartial = { [weak self] _ in self?.speechActivity() }   // still talking → wait again
         listener.onDictation = { [weak self] text in Task { await self?.sayIt(text) } }
         glasses.onEvent = { [weak self] ev, side in self?.onEvent(ev, side: side) }
         glasses.onAudio = { [weak self] lc3data in
@@ -110,6 +110,7 @@ final class TranslatorEngine: ObservableObject {
 
     private func onSentence(_ text: String) {
         guard running, !paused else { return }
+        speechActivity()
         if Date().timeIntervalSince(lastSpeech) > 90 { newConversation() }
 
         // the user read one of the suggestions aloud → don't translate it
@@ -149,22 +150,33 @@ final class TranslatorEngine: ObservableObject {
         }
         show(body)
         status = ""
-        if settings.replies {
-            startPrefetch()
-            scheduleTurnEnd()
-        }
+        if settings.replies { startPrefetch() }
     }
 
     // MARK: - Speaker finished → replies
 
     private func cancelTurnTimer() { turnTimer?.cancel(); turnTimer = nil }
 
+    /// Any recognised speech restarts the countdown to "the speaker has finished".
+    /// (The countdown no longer depends on a sentence being translated – a mumble that the
+    /// translator drops as noise used to stop the replies from ever appearing.)
+    private func speechActivity() {
+        guard running, !paused, !dictating, settings.replies else { return }
+        scheduleTurnEnd()
+    }
+
     private func scheduleTurnEnd() {
         cancelTurnTimer()
         turnTimer = Task {
             try? await Task.sleep(for: .seconds(settings.turnEnd))
             guard !Task.isCancelled else { return }
-            if listener.isSpeaking { scheduleTurnEnd(); return }
+            // a voice still in the microphone → give it a moment, but noise must not block replies forever
+            var waited = 0.0
+            while listener.isSpeaking, waited < 3 {
+                try? await Task.sleep(for: .milliseconds(250))
+                guard !Task.isCancelled else { return }
+                waited += 0.25
+            }
             await turnEnded()
         }
     }
@@ -179,21 +191,37 @@ final class TranslatorEngine: ObservableObject {
     }
 
     private func turnEnded() async {
-        guard !turnOrig.isEmpty, let pre = prefetch else { return }
-        let turn = pre.turn
-        do {
-            let result = try await pre.task.value
-            guard turn == turnOrig.joined(separator: " "), !listener.isSpeaking else { return }
-            replies = result; mode = "reply"
-            turnOrig = []; turnTr = []; prefetch = nil
-            guard !result.isEmpty else { return }
-            show(renderAll())
-            if settings.followUps {
-                let interp = interpreter, l = convLang, ctx = Array(history.suffix(8))
-                followups = Task { try await interp.followups(turn: turn, lang: l, context: ctx, replies: result) }
-            }
-        } catch {
-            if !(error is CancellationError) { status = error.localizedDescription }
+        // wait until the last sentence is translated (slow speakers: it may still be on its way)
+        await translateChain?.value
+        guard !Task.isCancelled, settings.replies, !turnOrig.isEmpty else { return }
+        let turn = turnOrig.joined(separator: " ")
+        if prefetch?.turn != turn { startPrefetch() }
+        guard let pre = prefetch else { return }
+
+        var result: [Reply] = []
+        var failure: Error?
+        do { result = try await pre.task.value } catch { failure = error }
+        // they started speaking again → the next pause will bring replies for the whole turn
+        guard !Task.isCancelled, turn == turnOrig.joined(separator: " ") else { return }
+
+        if result.isEmpty {
+            // the prepared request failed or returned nothing usable → ask once more
+            let ctx = Array(history.dropLast(turnOrig.count))
+            do { result = try await interpreter.replies(turn: turn, lang: convLang, context: ctx) }
+            catch { failure = error }
+            guard !Task.isCancelled, turn == turnOrig.joined(separator: " ") else { return }
+        }
+        guard !result.isEmpty else {
+            if let failure, !(failure is CancellationError) { status = failure.localizedDescription }
+            return
+        }
+
+        replies = result; mode = "reply"
+        turnOrig = []; turnTr = []; prefetch = nil
+        show(renderAll())
+        if settings.followUps {
+            let interp = interpreter, l = convLang, ctx = Array(history.suffix(8))
+            followups = Task { try await interp.followups(turn: turn, lang: l, context: ctx, replies: result) }
         }
     }
 
