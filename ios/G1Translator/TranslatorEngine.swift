@@ -31,6 +31,8 @@ final class TranslatorEngine: ObservableObject {
     @Published private(set) var status = ""
     @Published private(set) var dictating = false
     @Published private(set) var learningVoice = false
+    /// Preview of the picture on the glasses (boxes); nil = plain text is shown.
+    @Published private(set) var screenImage: UIImage?
 
     let glasses: G1Glasses
     let listener = SpeechListener()
@@ -62,6 +64,7 @@ final class TranslatorEngine: ObservableObject {
     private var repliesShownAt = Date.distantPast
     /// Translation of the turn, to switch back to it with a tap.
     private var lastTurnScreen = ""
+    private var lastTurnText = ""
     private var showingTranslation = false
     private var lastTranslationAt = Date.distantPast
     private var lastTranslationWords = 0
@@ -145,7 +148,7 @@ final class TranslatorEngine: ObservableObject {
     func newConversation() {
         turnOrig = []; turnTr = []; history = []; replies = []
         mode = "reply"; headerShown = false; summary = ""
-        gist = ""; repliesTurn = ""; lastTurnScreen = ""
+        gist = ""; repliesTurn = ""; lastTurnScreen = ""; lastTurnText = ""
         for job in drafts.values { job.cancel() }
         drafts = [:]
         prefetch?.task.cancel(); prefetch = nil
@@ -154,6 +157,7 @@ final class TranslatorEngine: ObservableObject {
 
     private func show(_ text: String) {
         dlog("SHOW \(short(text, 60))")
+        screenImage = nil
         screen = G1Protocol.tail(text, width: settings.charsPerLine)
         glasses.show(text)
     }
@@ -268,7 +272,7 @@ final class TranslatorEngine: ObservableObject {
             self.show(self.turnBody(adding: tr))
             self.lastTranslationAt = Date()
             self.lastTranslationWords = tr.split(separator: " ").count
-            if self.settings.replies { self.startPrefetch(adding: text) }
+            if self.settings.replies { self.startPrefetch(adding: text, translation: tr) }
         }
     }
 
@@ -342,8 +346,9 @@ final class TranslatorEngine: ObservableObject {
     }
 
     /// After every sentence, prepare replies in the background → shown instantly at the pause.
-    private func startPrefetch(adding extra: String? = nil) {
+    private func startPrefetch(adding extra: String? = nil, translation extraTr: String? = nil) {
         let turn = (turnOrig + (extra.map { [$0] } ?? [])).joined(separator: " ")
+        let translated = (turnTr + (extraTr.map { [$0] } ?? [])).joined(separator: " ")
         if prefetch?.turn == turn { return }               // already being prepared (e.g. from the draft)
         prefetch?.task.cancel()
         let ctx = Array(history.dropLast(turnOrig.count))
@@ -351,7 +356,7 @@ final class TranslatorEngine: ObservableObject {
         dlog("PREFETCH \(short(turn))")
         prefetch = (turn, Task {
             let t = Date()
-            let r = try await interp.replies(turn: turn, lang: l, context: ctx, background: bg)
+            let r = try await interp.replies(turn: turn, lang: l, context: ctx, background: bg, translated: translated)
             dlog(String(format: "REPLIES ready %.1fs, %d ", Date().timeIntervalSince(t), r.items.count) + short(r.gist))
             return r
         })
@@ -381,7 +386,10 @@ final class TranslatorEngine: ObservableObject {
         if result.items.isEmpty {
             // the prepared request failed or returned nothing usable → ask once more
             let ctx = Array(history.dropLast(turnOrig.count))
-            do { result = try await interpreter.replies(turn: turn, lang: convLang, context: ctx, background: background) }
+            do {
+                result = try await interpreter.replies(turn: turn, lang: convLang, context: ctx, background: background,
+                                                       translated: turnTr.joined(separator: " "))
+            }
             catch { failure = error }
             guard !Task.isCancelled, turn == turnOrig.joined(separator: " ") else { return }
         }
@@ -400,10 +408,11 @@ final class TranslatorEngine: ObservableObject {
         }
 
         lastTurnScreen = turnBody()
+        lastTurnText = turnTr.joined(separator: " ")
         replies = result.items; gist = result.gist; mode = "reply"
         repliesTurn = turn; repliesShownAt = Date(); prefetch = nil
         showingTranslation = false
-        show(renderAll())
+        showReplies()
         if settings.followUps {
             let items = result.items
             let interp = interpreter, l = convLang, ctx = Array(history.suffix(8)), bg = background
@@ -436,19 +445,19 @@ final class TranslatorEngine: ObservableObject {
             show("\(lang.t("you_said")): \(said.meaning.isEmpty ? said.text : said.meaning)\n\(lang.t("listening"))")
         } else {
             replies = questions; mode = "ask"
-            show(renderAll())
+            showReplies()
         }
     }
 
     /// All suggestions on one screen: "<sign> meaning: pronunciation" per line.
     /// If it would not fit on 5 lines, drop the header, then the meanings.
     private func renderAll() -> String {
-        let signs = ["yes": "+", "no": "-", "question": "?", "ask": "?", "say": ">"]
+        let signs = ["yes": "+", "no": "-", "question": "?", "other": "•", "ask": "?", "say": ">"]
         func build(top: Bool, meaning: Bool, count: Int) -> String {
             var lines: [String] = []
             if top {
                 if mode == "ask" { lines.append("\(lang.t("ask")):") }
-                else if mode == "reply", !gist.isEmpty { lines.append("» \(gist)") }
+                else if mode == "reply", !lastTurnText.isEmpty { lines.append("» " + Self.ending(lastTurnText, max: 34)) }
             }
             for r in replies.prefix(count) {
                 let sign = signs[mode == "ask" ? "ask" : r.kind] ?? "*"
@@ -464,6 +473,32 @@ final class TranslatorEngine: ObservableObject {
             if G1Protocol.fits(text, width: settings.charsPerLine) { return text }
         }
         return build(top: false, meaning: false, count: n)
+    }
+
+    /// The end of a long text ("…what they asked last") – the question is usually at the end.
+    static func ending(_ text: String, max: Int) -> String {
+        guard text.count > max else { return text }
+        var cut = String(text.suffix(max))
+        if let space = cut.firstIndex(of: " ") { cut = String(cut[cut.index(after: space)...]) }
+        return "…" + cut
+    }
+
+    /// Replies / questions: clear boxes in a picture (more room), or the text layout.
+    private func showReplies() {
+        let text = renderAll()
+        guard settings.boxes else { show(text); return }
+        let signs = ["yes": "+", "no": "-", "question": "?", "other": "•", "ask": "?", "say": ">"]
+        let header = mode == "ask" ? lang.t("ask") : mode == "say" ? lang.t("say") : Self.ending(lastTurnText, max: 110)
+        let boxes = replies.prefix(3).map { r -> G1Image.Box in
+            let sign = signs[mode == "ask" ? "ask" : r.kind] ?? "•"
+            let title = r.meaning.isEmpty ? "\(sign) \(r.text)" : "\(sign) \(r.meaning)"
+            return G1Image.Box(title: title, body: r.pron.isEmpty ? r.text : r.pron)
+        }
+        let (bmp, preview) = G1Image.boxes(header: header, boxes: Array(boxes))
+        dlog("SHOW boxes \(boxes.count) " + short(header, 40))
+        screen = text
+        screenImage = preview
+        glasses.showImage(bmp, fallback: text)
     }
 
     // MARK: - Say it in my language
@@ -489,7 +524,8 @@ final class TranslatorEngine: ObservableObject {
             let r = try await interpreter.sayIt(text, lang: convLang, context: history, background: background)
             replies = [r]; mode = "say"
             followups?.cancel(); followups = nil
-            show("\(lang.t("say")): \(r.meaning)\n> \(r.pron.isEmpty ? r.text : r.pron)")
+            gist = ""
+            showReplies()
         } catch {
             status = error.localizedDescription
         }
@@ -516,9 +552,9 @@ final class TranslatorEngine: ObservableObject {
             // switch between what they said and the replies
             guard !replies.isEmpty, mode == "reply", !lastTurnScreen.isEmpty else { break }
             showingTranslation.toggle()
-            show(showingTranslation ? lastTurnScreen : renderAll())
+            if showingTranslation { show(lastTurnScreen) } else { showReplies() }
         case .headUp:
-            if !replies.isEmpty { showingTranslation = false; show(renderAll()) }
+            if !replies.isEmpty { showingTranslation = false; showReplies() }
         default: break
         }
     }

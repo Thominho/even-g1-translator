@@ -126,37 +126,44 @@ struct Interpreter {
         return out == "-" || out.isEmpty ? nil : out
     }
 
-    func replies(turn: String, lang: String, context: [String], background: String = "") async throws -> ReplySet {
+    func replies(turn: String, lang: String, context: [String], background: String = "",
+                 translated: String = "") async throws -> ReplySet {
         let system = """
-        The user is a native \(native) speaker who does not speak \(lang). Someone has just spoken \
-        to them in \(lang) – possibly several sentences or several questions at once. Suggest 3 short \
-        replies IN \(lang) that the user can read out loud:
-        1. "yes" – positive / agreement / thanks (whatever fits),
-        2. "no" – negative / polite refusal,
-        3. "question" – a follow-up question on the topic, OR a request to repeat more slowly if \
-        the speech made no sense.
-        If they asked several things, every reply must answer ALL of them briefly in one go \
-        (e.g. "Gladly! I finish at five."). Max 8 words per reply, simple vocabulary.
+        You help a native \(native) speaker who does not speak \(lang) hold a real, natural \
+        conversation in \(lang) through smart glasses. You get what the other person just said \
+        (from speech recognition – it may contain misheard words – plus a \(native) translation) \
+        and the conversation so far. Suggest the 3 things the user would most likely really want to \
+        say next – exactly what a normal person in this conversation would answer: direct, relevant, \
+        friendly, everyday spoken \(lang).
+        Rules:
+        - Respond to what was actually said: answer their question(s), react to what they told you, \
+          return a greeting with a greeting, thank for an offer, etc. Never an option that doesn't fit.
+        - The 3 options must be clearly different – usually one positive / agreeing, one negative / \
+          declining or a different answer, and one that asks something back to keep the conversation \
+          going. Label each with "kind": "yes", "no", "question" or "other".
+        - If they asked several things, each option answers all of them (e.g. "Gladly! I finish at five.").
+        - If what they said makes no sense, one option politely asks them to repeat slowly.
+        - Use what is known about the user (background); where a detail is unknown (a time, a place), \
+          pick a plausible one.
+        - Max 8 words each, simple words, natural word order – how people really talk.
         For each add a pronunciation guide written with \(native) spelling conventions, so a \(native) \
         speaker reading it naturally sounds right, and its meaning in \(native).
-        Replies must be natural, polite things a real person would say in this situation.
         The "meaning" must sound like a native \(native) speaker would naturally say the same thing in \
         this situation – idiomatic and correct, never a word-for-word calque (e.g. Spanish \
         "¿Qué tal el día?" is "How's your day going?", not "How is the day?"). Up to 6 words, no full stop.
-        Also give "gist": what they said or asked, in natural \(native), max 7 words \
-        (e.g. "Beer with us? When do you finish work?"), so the user knows what the replies answer.
-        Return ONLY JSON: {"gist": "...", "replies": [{"kind": "yes", "text": "...", "pron": "...", "meaning": "..."}, ...]}
+        Return ONLY JSON: {"replies": [{"kind": "yes", "text": "...", "pron": "...", "meaning": "..."}, ...]}
         """
         var user = background.isEmpty ? "" : "Background:\n\(background)\n\n"
         if !context.isEmpty { user += "Conversation so far:\n" + context.suffix(8).joined(separator: "\n") + "\n\n" }
         user += "They just said:\n\(turn)"
+        if !translated.isEmpty { user += "\n\nIn \(native):\n\(translated)" }
         let raw = try await llm.chat(system: system, user: user, maxTokens: 900)
         let parsed = Self.parse(raw)
         let items = Self.items(parsed, key: "replies")
-        let kinds = ["yes", "no", "question"]
+        let kinds = ["yes", "no", "question", "other"]
         let out: [Reply] = items.prefix(3).enumerated().compactMap { i, d in
             guard let r = Self.reply(d, kind: nil) else { return nil }
-            return kinds.contains(r.kind) ? r : Reply(kind: kinds[i], text: r.text, pron: r.pron, meaning: r.meaning)
+            return kinds.contains(r.kind) ? r : Reply(kind: kinds[min(i, 2)], text: r.text, pron: r.pron, meaning: r.meaning)
         }
         if out.isEmpty {
             let flat = raw.replacingOccurrences(of: "\n", with: "⏎")

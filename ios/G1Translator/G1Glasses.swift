@@ -33,7 +33,8 @@ final class G1Glasses: NSObject, ObservableObject {
     private var hbSeq: UInt8 = 0
     private var heartbeatTask: Task<Void, Never>?
     private var sendQueue: Task<Void, Never>?
-    private var pendingText: String?
+    private enum Content { case text(String), image(Data, fallback: String) }
+    private var pending: Content?
     private var wantConnect = false
 
     override init() {
@@ -103,17 +104,81 @@ final class G1Glasses: NSObject, ObservableObject {
     func show(_ text: String) {
         let screen = G1Protocol.tail(text, width: charsPerLine)
         lastScreen = screen
+        enqueue(.text(screen))
+    }
+
+    /// A 576×136 1-bit BMP (boxes, more content); the text is shown if the picture can't be sent.
+    func showImage(_ bmp: Data, fallback: String) {
+        lastScreen = G1Protocol.tail(fallback, width: charsPerLine)
+        enqueue(.image(bmp, fallback: lastScreen))
+    }
+
+    private func enqueue(_ content: Content) {
         guard isConnected else { return }
-        pendingText = screen
+        pending = content          // only the newest screen matters
         if sendQueue == nil {
             sendQueue = Task {
-                while let next = self.pendingText {
-                    self.pendingText = nil
-                    await self.send(next)
+                while let next = self.pending {
+                    self.pending = nil
+                    switch next {
+                    case .text(let t): await self.send(t)
+                    case .image(let bmp, let fallback):
+                        if await !self.sendImage(bmp) { await self.send(fallback) }
+                    }
                 }
                 self.sendQueue = nil
             }
         }
+    }
+
+    /// Picture upload as in the official demo: 0x15 packets (address in the first one), 0x20 end, 0x16 CRC.
+    /// Pause between picture packets – as short as the glasses take (learnt: slower after a failed upload).
+    private var imagePacing = 3
+
+    private func sendImage(_ bmp: Data) async -> Bool {
+        for attempt in 0..<2 {
+            let t = Date()
+            async let left = sendImage(bmp, side: "L")
+            async let right = sendImage(bmp, side: "R")
+            let (l, r) = await (left, right)
+            dlog(String(format: "BLE image %.2fs, L %@ R %@, pacing %d ms", Date().timeIntervalSince(t),
+                        l ? "ok" : "fail", r ? "ok" : "fail", imagePacing))
+            if l && r { return true }
+            if attempt == 0 { imagePacing = 8 }      // too fast for the glasses → official demo speed
+            if pending != nil { return false }       // a newer screen is waiting anyway
+        }
+        return false
+    }
+
+    private func sendImage(_ bmp: Data, side: String) async -> Bool {
+        guard let p = peripherals[side] else { return false }
+        let maxLen = p.maximumWriteValueLength(for: .withoutResponse)
+        let pack = min(194, maxLen - 6)
+        guard pack > 20 else { return false }
+        var index = 0
+        var offset = 0
+        while offset < bmp.count {
+            let end = min(offset + pack, bmp.count)
+            var packet = Data([0x15, UInt8(index & 0xFF)])
+            if index == 0 { packet.append(contentsOf: G1Image.address) }
+            packet.append(bmp.subdata(in: offset..<end))
+            var spins = 0
+            while !p.canSendWriteWithoutResponse, spins < 50 {   // don't overflow the BLE buffer
+                try? await Task.sleep(for: .milliseconds(4)); spins += 1
+            }
+            await write(packet, side: side, waitAck: false)
+            try? await Task.sleep(for: .milliseconds(imagePacing))
+            index += 1
+            offset = end
+        }
+        var finished = false
+        for _ in 0..<3 where !finished {
+            finished = await write(Data([0x20, 0x0D, 0x0E]), side: side, waitAck: true, timeoutMs: 3000)
+        }
+        guard finished else { return false }
+        let crc = G1Image.crc32(Data(G1Image.address) + bmp)
+        let crcPacket = Data([0x16, UInt8(crc >> 24), UInt8((crc >> 16) & 0xFF), UInt8((crc >> 8) & 0xFF), UInt8(crc & 0xFF)])
+        return await write(crcPacket, side: side, waitAck: true, timeoutMs: 2000)
     }
 
     private func send(_ screen: String) async {
@@ -138,7 +203,7 @@ final class G1Glasses: NSObject, ObservableObject {
     }
 
     @discardableResult
-    private func write(_ data: Data, side: String, waitAck: Bool) async -> Bool {
+    private func write(_ data: Data, side: String, waitAck: Bool, timeoutMs: Int = 600) async -> Bool {
         guard let p = peripherals[side], let ch = writeChars[side] else { return false }
         guard waitAck else {
             p.writeValue(data, for: ch, type: .withoutResponse)
@@ -151,7 +216,7 @@ final class G1Glasses: NSObject, ObservableObject {
             waiter.continuation = cont
             p.writeValue(data, for: ch, type: .withoutResponse)
             Task {
-                try? await Task.sleep(for: .milliseconds(600))
+                try? await Task.sleep(for: .milliseconds(timeoutMs))
                 waiter.finish(false)   // no ack in time – carry on
             }
         }

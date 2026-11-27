@@ -87,6 +87,7 @@ struct SettingsView: View {
                 }
 
                 Section(settings.t("Display")) {
+                    Toggle(settings.t("Replies in boxes (more room)"), isOn: $settings.boxes)
                     VStack(alignment: .leading) {
                         Text(settings.t("Characters per line") + ": \(Int(settings.charsPerLine))")
                         Slider(value: $settings.charsPerLine, in: 28...46, step: 1)

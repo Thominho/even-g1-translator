@@ -18,6 +18,8 @@ final class Settings: ObservableObject {
     @Published var micMode: String { didSet { d.set(micMode, forKey: "micMode") } }   // auto | glasses | phone
     @Published var onlineRecognition: Bool { didSet { d.set(onlineRecognition, forKey: "onlineRecognition") } }
     @Published var apiKey: String { didSet { Keychain.save(apiKey, for: "apiKey") } }
+    /// Replies as boxes in a picture (more room) instead of plain text lines.
+    @Published var boxes: Bool { didSet { d.set(boxes, forKey: "boxes") } }
     /// Who the user is / where – context for translations and replies.
     @Published var aboutMe: String { didSet { d.set(aboutMe, forKey: "aboutMe") } }
     /// The user's own voice on the glasses microphone (0 = not learned yet).
@@ -38,6 +40,7 @@ final class Settings: ObservableObject {
         appLanguage = d.string(forKey: "appLanguage") ?? "en"
         apiKey = Keychain.load("apiKey") ?? ""
         aboutMe = d.string(forKey: "aboutMe") ?? ""
+        boxes = d.object(forKey: "boxes") as? Bool ?? true
         ownVoiceLevel = d.object(forKey: "ownVoiceLevel") as? Double ?? 0
     }
 

@@ -42,6 +42,16 @@ struct ContentView: View {
                 glassesStatus
 
                 // Mirror of the glasses display
+                if let image = engine.screenImage {
+                    Image(uiImage: image)
+                        .interpolation(.none)
+                        .resizable()
+                        .aspectRatio(CGFloat(G1Image.width) / CGFloat(G1Image.height), contentMode: .fit)
+                        .colorMultiply(green)
+                        .padding(8)
+                        .background(Color.black, in: RoundedRectangle(cornerRadius: 14))
+                        .overlay(RoundedRectangle(cornerRadius: 14).stroke(green.opacity(0.5)))
+                } else {
                 Text(engine.screen.isEmpty ? " " : engine.screen)
                     .font(.system(.body, design: .monospaced))
                     .foregroundStyle(green)
@@ -49,6 +59,7 @@ struct ContentView: View {
                     .padding()
                     .background(Color.black, in: RoundedRectangle(cornerRadius: 14))
                     .overlay(RoundedRectangle(cornerRadius: 14).stroke(green.opacity(0.5)))
+                }
 
                 if engine.running {
                     Label(settings.t(listener.activeSource == .glasses ? "G1 glasses" : "iPhone / AirPods"),
