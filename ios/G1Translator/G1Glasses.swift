@@ -19,8 +19,13 @@ final class G1Glasses: NSObject, ObservableObject {
 
     private var central: CBCentralManager!
     private var found: [String: [String: CBPeripheral]] = [:]     // channel -> side -> peripheral
-    /// Names of nearby devices that look like glasses (shown when nothing matches).
-    @Published private(set) var seenNames: [String] = []
+    /// Nearby Bluetooth devices (name + signal), strongest first – shown while searching, for diagnostics.
+    @Published private(set) var nearby: [String] = []
+    private var nearbyRSSI: [String: Int] = [:]
+    /// The pair used last time (side -> peripheral id) – reconnects even when the glasses don't advertise.
+    private let knownKey = "g1.knownPair"
+    private var triedKnown = false
+    private var attempt = 0
     private var peripherals: [String: CBPeripheral] = [:]         // side -> peripheral
     private var writeChars: [String: CBCharacteristic] = [:]
     private var waiters: [String: Waiter] = [:]
@@ -42,23 +47,47 @@ final class G1Glasses: NSObject, ObservableObject {
     func connect() {
         wantConnect = true
         guard central.state == .poweredOn else { return }   // continues in centralManagerDidUpdateState
+        attempt += 1
         found = [:]
-        seenNames = []
+        nearbyRSSI = [:]; nearby = []
         state = .scanning
-        // Glasses already connected to this iPhone (e.g. kept by iOS after the Even app) don't advertise,
-        // so pick them up from the system first.
-        let known = central.retrieveConnectedPeripherals(withServices: [CBUUID(string: G1Protocol.uartService)])
-        for p in known { consider(p, name: p.name) }
-        guard state == .scanning else { return }
-        central.scanForPeripherals(withServices: nil, options: [CBCentralManagerScanOptionAllowDuplicatesKey: false])
-        Task {
-            try? await Task.sleep(for: .seconds(20))
-            if self.state == .scanning {
-                self.central.stopScan()
-                let seen = self.seenNames.isEmpty ? "" : " (" + self.seenNames.prefix(4).joined(separator: ", ") + ")"
-                self.state = .failed("G1 not found – close the Even Realities app and take the glasses out of the case." + seen)
+
+        // 1. The pair we used last time – works even when iOS keeps the glasses connected (they stop advertising).
+        if !triedKnown, let saved = UserDefaults.standard.dictionary(forKey: knownKey) as? [String: String],
+           let l = saved["L"].flatMap(UUID.init), let r = saved["R"].flatMap(UUID.init) {
+            triedKnown = true
+            let ps = central.retrievePeripherals(withIdentifiers: [l, r])
+            if let pl = ps.first(where: { $0.identifier == l }), let pr = ps.first(where: { $0.identifier == r }) {
+                use(left: pl, right: pr)
+                return
             }
         }
+
+        // 2. Glasses connected to this iPhone at system level (bonded, e.g. kept after the Even app).
+        let services = [G1Protocol.uartService, "180A", "180F"].map { CBUUID(string: $0) }
+        for p in central.retrieveConnectedPeripherals(withServices: services) {
+            note(p.name ?? "?", rssi: nil, connected: true)
+            consider(p, name: p.name)
+        }
+        guard state == .scanning else { return }
+
+        // 3. Scan for advertising glasses.
+        central.scanForPeripherals(withServices: nil, options: [CBCentralManagerScanOptionAllowDuplicatesKey: true])
+        let thisAttempt = attempt
+        Task {
+            try? await Task.sleep(for: .seconds(25))
+            if self.state == .scanning, self.attempt == thisAttempt {
+                self.central.stopScan()
+                self.state = .failed("G1 not found – close the Even Realities app and take the glasses out of the case.")
+            }
+        }
+    }
+
+    /// Remembers a nearby device for the diagnostics list.
+    fileprivate func note(_ name: String, rssi: Int?, connected: Bool) {
+        let key = connected ? name + " · iOS" : name
+        nearbyRSSI[key] = rssi ?? 0
+        nearby = nearbyRSSI.sorted { $0.value > $1.value }.prefix(8).map { k, v in v == 0 ? k : "\(k)  \(v) dBm" }
     }
 
     func disconnect() {
@@ -185,6 +214,10 @@ final class G1Glasses: NSObject, ObservableObject {
     fileprivate func checkReady() {
         if writeChars["L"] != nil, writeChars["R"] != nil, state != .connected {
             state = .connected
+            triedKnown = false
+            if let l = peripherals["L"], let r = peripherals["R"] {
+                UserDefaults.standard.set(["L": l.identifier.uuidString, "R": r.identifier.uuidString], forKey: knownKey)
+            }
             startHeartbeat()
             if wantMic { setMic(true) }
             if !lastScreen.isEmpty { show(lastScreen) }
@@ -207,26 +240,40 @@ extension G1Glasses: CBCentralManagerDelegate, CBPeripheralDelegate {
     nonisolated func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral,
                                     advertisementData: [String: Any], rssi RSSI: NSNumber) {
         let name = (advertisementData[CBAdvertisementDataLocalNameKey] as? String) ?? peripheral.name
-        MainActor.assumeIsolated { consider(peripheral, name: name) }
+        let rssi = RSSI.intValue
+        MainActor.assumeIsolated {
+            if let name, rssi > -95, rssi != 127, state == .scanning { note(name, rssi: rssi, connected: false) }
+            consider(peripheral, name: name)
+        }
     }
 
     /// Collects left/right temples of one pair and connects once both are found.
     func consider(_ peripheral: CBPeripheral, name: String?) {
-        if let name, name.localizedCaseInsensitiveContains("G1") || name.localizedCaseInsensitiveContains("even"),
-           !seenNames.contains(name) {
-            seenNames.append(name)
-        }
         guard state == .scanning, let parsed = G1Protocol.parseName(name) else { return }
         found[parsed.channel, default: [:]][parsed.side] = peripheral
         if let pair = found[parsed.channel], let l = pair["L"], let r = pair["R"] {
-            central.stopScan()
-            state = .connecting
-            peripherals = ["L": l, "R": r]
-            for p in [l, r] {
-                p.delegate = self
-                if p.state == .connected { p.discoverServices([CBUUID(string: G1Protocol.uartService)]) }
-                else { central.connect(p, options: nil) }
-            }
+            use(left: l, right: r)
+        }
+    }
+
+    private func use(left l: CBPeripheral, right r: CBPeripheral) {
+        central.stopScan()
+        state = .connecting
+        peripherals = ["L": l, "R": r]
+        writeChars = [:]
+        for p in [l, r] {
+            p.delegate = self
+            if p.state == .connected { p.discoverServices([CBUUID(string: G1Protocol.uartService)]) }
+            else { central.connect(p, options: [CBConnectPeripheralOptionNotifyOnDisconnectionKey: true]) }
+        }
+        // CoreBluetooth never gives up on its own: if the pair doesn't answer, search again.
+        let thisAttempt = attempt
+        Task {
+            try? await Task.sleep(for: .seconds(15))
+            guard self.state == .connecting, self.attempt == thisAttempt else { return }
+            for p in [l, r] { self.central.cancelPeripheralConnection(p) }
+            self.peripherals = [:]
+            self.connect()
         }
     }
 

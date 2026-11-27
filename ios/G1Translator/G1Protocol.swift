@@ -27,11 +27,19 @@ enum G1Protocol {
 
     /// "G1_45_L_92333" -> ("45", "L")
     /// Accepts "G1_45_L_92333", "Even G1_45_L_92333" and similar advertised names.
+    /// "Even G1_45_L_92333" -> ("45", "L"). Same rule as the official demo: the side is the "_L_" / "_R_" part,
+    /// the channel (pair number) is the part before it.
     static func parseName(_ name: String?) -> (channel: String, side: String)? {
-        guard let name, let r = name.range(of: "G1_") else { return nil }
-        let parts = name[r.upperBound...].split(separator: "_")
-        guard parts.count >= 2, ["L", "R"].contains(parts[1].uppercased()) else { return nil }
-        return (String(parts[0]), parts[1].uppercased())
+        guard let name else { return nil }
+        let parts = name.split(separator: "_").map { String($0).trimmingCharacters(in: .whitespaces) }
+        for i in 1..<max(parts.count, 1) where i < parts.count {
+            let side = parts[i].uppercased()
+            guard side == "L" || side == "R" else { continue }
+            let channel = parts[i - 1].components(separatedBy: " ").last ?? parts[i - 1]
+            guard !channel.isEmpty else { continue }
+            return (channel, side)
+        }
+        return nil
     }
 
     static func heartbeat(seq: UInt8) -> Data {

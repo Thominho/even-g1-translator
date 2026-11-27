@@ -119,5 +119,21 @@ struct ContentView: View {
             }
         }
         .font(.subheadline)
+        if showNearby {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(settings.t("Nearby Bluetooth devices")).font(.caption.bold())
+                ForEach(glasses.nearby, id: \.self) { Text($0).font(.caption.monospaced()) }
+            }
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private var showNearby: Bool {
+        guard !glasses.nearby.isEmpty else { return false }
+        switch glasses.state {
+        case .scanning, .failed: return true
+        default: return false
+        }
     }
 }
